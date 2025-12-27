@@ -217,20 +217,34 @@
 		return Array.from(repos).sort();
 	});
 
+	// サーバーの登録状態を判定
+	function getRegistrationStatus(server: ServerInfo): 'open' | 'approval' | 'invite' | 'closed' {
+		if (!server.registrationOpen) {
+			return 'closed';
+		}
+		if (server.inviteOnly) {
+			return 'invite';
+		}
+		if (server.approvalRequired) {
+			return 'approval';
+		}
+		return 'open';
+	}
+
 	// フィルター適用後のサーバー一覧
 	let filteredServers = $derived(() => {
 		return displayServers().filter((server: ServerInfo) => {
-			// 登録受付中のみ
-			if (filter.registrationOpen && !server.registrationOpen) return false;
+			// 新規登録フィルター
+			if (filter.registrationStatus.length > 0) {
+				const status = getRegistrationStatus(server);
+				if (!filter.registrationStatus.includes(status)) return false;
+			}
 
-			// メアド不要
-			if (filter.emailNotRequired && server.emailRequired) return false;
-
-			// 承認制
-			if (filter.approvalRequired && !server.approvalRequired) return false;
-
-			// 招待制
-			if (filter.inviteOnly && !server.inviteOnly) return false;
+			// メールアドレス要件
+			if (filter.emailRequirement !== null) {
+				if (filter.emailRequirement === 'required' && !server.emailRequired) return false;
+				if (filter.emailRequirement === 'notRequired' && server.emailRequired) return false;
+			}
 
 			// 年齢制限
 			if (filter.ageRestriction && server.ageRestriction !== filter.ageRestriction) return false;

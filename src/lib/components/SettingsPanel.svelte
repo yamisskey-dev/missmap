@@ -127,22 +127,17 @@
 	</div>
 
 	<!-- 視点サーバーリスト -->
-	<div class="viewpoint-list">
+	<div class="viewpoint-chips">
 		{#each settings.viewpointServers as host (host)}
-			<div class="viewpoint-item" class:focused={settings.seedServer === host} class:ssr={isFromSSR(host)}>
-				<button class="viewpoint-btn" onclick={() => handleFocus(host)}>
-					<svg class="server-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<circle cx="12" cy="12" r="10" />
-						<line x1="2" y1="12" x2="22" y2="12" />
-						<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-					</svg>
-					<span class="host-name">{host}</span>
+			<div class="viewpoint-chip" class:active={settings.seedServer === host}>
+				<button class="chip-main" onclick={() => handleFocus(host)}>
+					{host}
 					{#if isFromSSR(host)}
-						<span class="ssr-badge">SSR</span>
+						<span class="ssr-dot" title="SSRで取得済み"></span>
 					{/if}
 				</button>
 				{#if settings.viewpointServers.length > 1}
-					<button class="remove-btn" onclick={() => handleRemove(host)} title="削除">
+					<button class="chip-remove" onclick={() => handleRemove(host)} title="削除">
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<line x1="18" y1="6" x2="6" y2="18" />
 							<line x1="6" y1="6" x2="18" y2="18" />
@@ -210,20 +205,20 @@
 
 <style>
 	.settings-panel {
-		padding: 0.875rem;
+		padding: 0.5rem 0.75rem;
 	}
 
 	.panel-header {
 		display: flex;
 		align-items: center;
-		gap: 0.375rem;
+		gap: 0.25rem;
 		margin-bottom: 0.375rem;
 	}
 
 	.panel-header-toggle {
 		display: flex;
 		align-items: center;
-		gap: 0.375rem;
+		gap: 0.25rem;
 		width: 100%;
 		padding: 0;
 		margin-bottom: 0.375rem;
@@ -240,8 +235,8 @@
 	}
 
 	.toggle-icon {
-		width: 16px;
-		height: 16px;
+		width: 14px;
+		height: 14px;
 		color: var(--fg-muted);
 		transition: transform var(--transition-fast);
 	}
@@ -251,14 +246,14 @@
 	}
 
 	.panel-icon {
-		width: 18px;
-		height: 18px;
+		width: 16px;
+		height: 16px;
 		color: var(--accent-500);
 	}
 
 	h4 {
 		margin: 0;
-		font-size: 0.95rem;
+		font-size: 0.85rem;
 		font-weight: 700;
 		letter-spacing: -0.01em;
 	}
@@ -266,11 +261,11 @@
 	/* View Mode Toggle */
 	.view-mode-toggle {
 		display: flex;
-		gap: 0.25rem;
-		margin-bottom: 0.75rem;
+		gap: 0.125rem;
+		margin-bottom: 0.5rem;
 		background: rgba(0, 0, 0, 0.2);
-		border-radius: var(--radius-md);
-		padding: 0.25rem;
+		border-radius: var(--radius-sm);
+		padding: 0.125rem;
 	}
 
 	.mode-btn {
@@ -278,12 +273,12 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.375rem;
-		padding: 0.5rem;
+		gap: 0.25rem;
+		padding: 0.375rem;
 		background: transparent;
 		border: none;
 		border-radius: var(--radius-sm);
-		font-size: 0.75rem;
+		font-size: 0.7rem;
 		font-weight: 500;
 		color: var(--fg-muted);
 		cursor: pointer;
@@ -291,8 +286,8 @@
 	}
 
 	.mode-btn svg {
-		width: 14px;
-		height: 14px;
+		width: 12px;
+		height: 12px;
 	}
 
 	.mode-btn:hover {
@@ -305,101 +300,81 @@
 		color: white;
 	}
 
-	/* Viewpoint List */
-	.viewpoint-list {
+	/* Viewpoint Chips */
+	.viewpoint-chips {
 		display: flex;
-		flex-direction: column;
-		gap: 0.375rem;
-		margin-bottom: 0.625rem;
-		max-height: 200px;
-		overflow-y: auto;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+		margin-bottom: 0.375rem;
 	}
 
-	.viewpoint-item {
+	.viewpoint-chip {
+		display: inline-flex;
+		align-items: center;
+		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid var(--border-color);
+		border-radius: 12px;
+		overflow: hidden;
+		transition: all var(--transition-fast);
+	}
+
+	.viewpoint-chip.active {
+		background: rgba(134, 179, 0, 0.15);
+		border-color: var(--accent-600);
+	}
+
+	.chip-main {
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
-		padding: 0.125rem;
-		border-radius: var(--radius-md);
-		transition: all var(--transition-fast);
-	}
-
-	.viewpoint-item.focused {
-		background: rgba(134, 179, 0, 0.1);
-	}
-
-	.viewpoint-btn {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 0.75rem;
-		background: rgba(0, 0, 0, 0.15);
-		border: 1px solid transparent;
-		border-radius: var(--radius-md);
+		padding: 0.25rem 0.5rem;
+		background: transparent;
+		border: none;
+		font-size: 0.7rem;
+		font-weight: 500;
+		color: var(--fg-secondary);
 		cursor: pointer;
 		transition: all var(--transition-fast);
-		text-align: left;
 	}
 
-	.viewpoint-item.focused .viewpoint-btn {
-		border-color: rgba(134, 179, 0, 0.3);
-		background: rgba(134, 179, 0, 0.05);
+	.viewpoint-chip.active .chip-main {
+		color: var(--accent-400);
 	}
 
-	.viewpoint-btn:hover {
-		background: rgba(134, 179, 0, 0.1);
-		border-color: rgba(134, 179, 0, 0.2);
+	.chip-main:hover {
+		color: var(--fg-primary);
 	}
 
-	.server-icon {
-		width: 16px;
-		height: 16px;
-		color: var(--accent-500);
+	.ssr-dot {
+		width: 5px;
+		height: 5px;
+		background: var(--accent-500);
+		border-radius: 50%;
 		flex-shrink: 0;
 	}
 
-	.host-name {
-		flex: 1;
-		font-size: 0.85rem;
-		font-weight: 500;
-		color: var(--fg-primary);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.ssr-badge {
-		font-size: 0.6rem;
-		font-weight: 600;
-		color: var(--accent-400);
-		background: rgba(134, 179, 0, 0.15);
-		padding: 0.125rem 0.375rem;
-		border-radius: var(--radius-sm);
-		text-transform: uppercase;
-	}
-
-	.remove-btn {
+	.chip-remove {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 28px;
-		height: 28px;
+		width: 18px;
+		height: 18px;
 		padding: 0;
+		margin-right: 0.125rem;
 		background: transparent;
 		border: none;
-		border-radius: var(--radius-sm);
+		border-radius: 50%;
 		color: var(--fg-muted);
 		cursor: pointer;
 		transition: all var(--transition-fast);
 	}
 
-	.remove-btn svg {
-		width: 14px;
-		height: 14px;
+	.chip-remove svg {
+		width: 10px;
+		height: 10px;
 	}
 
-	.remove-btn:hover {
+	.chip-remove:hover {
 		background: rgba(255, 100, 100, 0.15);
 		color: #fca5a5;
 	}
@@ -407,7 +382,7 @@
 	/* Action buttons */
 	.action-buttons {
 		display: flex;
-		gap: 0.375rem;
+		gap: 0.25rem;
 	}
 
 	.add-viewpoint-btn {
@@ -415,12 +390,12 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.375rem;
-		padding: 0.5rem;
+		gap: 0.25rem;
+		padding: 0.375rem;
 		background: transparent;
 		border: 1px dashed var(--border-color);
-		border-radius: var(--radius-md);
-		font-size: 0.75rem;
+		border-radius: var(--radius-sm);
+		font-size: 0.7rem;
 		font-weight: 500;
 		color: var(--fg-muted);
 		cursor: pointer;
@@ -428,8 +403,8 @@
 	}
 
 	.add-viewpoint-btn svg {
-		width: 14px;
-		height: 14px;
+		width: 12px;
+		height: 12px;
 	}
 
 	.add-viewpoint-btn:hover {
@@ -442,12 +417,12 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.375rem;
-		padding: 0.5rem 0.75rem;
+		gap: 0.25rem;
+		padding: 0.375rem 0.5rem;
 		background: transparent;
 		border: 1px solid var(--border-color);
-		border-radius: var(--radius-md);
-		font-size: 0.75rem;
+		border-radius: var(--radius-sm);
+		font-size: 0.7rem;
 		font-weight: 500;
 		color: var(--fg-muted);
 		cursor: pointer;
@@ -455,8 +430,8 @@
 	}
 
 	.reset-btn svg {
-		width: 14px;
-		height: 14px;
+		width: 12px;
+		height: 12px;
 	}
 
 	.reset-btn:hover {

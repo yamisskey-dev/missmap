@@ -1,12 +1,18 @@
 export type AgeRestriction = 'all' | '13+' | '18+' | 'unknown';
 export type ServerScale = 'large' | 'medium' | 'small';
 
+// 新規登録の状態（複数選択可能）
+export type RegistrationStatus = 'open' | 'approval' | 'invite' | 'closed';
+
+// メールアドレスの要件
+export type EmailRequirement = 'required' | 'notRequired' | null;
+
 export interface ServerFilter {
-	// 登録要件
-	emailNotRequired: boolean;
-	approvalRequired: boolean;
-	inviteOnly: boolean;
-	registrationOpen: boolean;
+	// 新規登録（複数選択可能）
+	registrationStatus: RegistrationStatus[];
+
+	// メールアドレス要件
+	emailRequirement: EmailRequirement;
 
 	// 年齢制限
 	ageRestriction: AgeRestriction | null;
@@ -19,10 +25,8 @@ export interface ServerFilter {
 }
 
 export const DEFAULT_FILTER: ServerFilter = {
-	emailNotRequired: false,
-	approvalRequired: false,
-	inviteOnly: false,
-	registrationOpen: false,
+	registrationStatus: [],
+	emailRequirement: null,
 	ageRestriction: null,
 	repositoryUrls: [],
 	scale: []
