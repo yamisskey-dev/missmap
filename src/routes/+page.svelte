@@ -26,10 +26,19 @@
 	let filter: ServerFilter = $state({ ...DEFAULT_FILTER });
 	let settings: UserSettings = $state({ ...DEFAULT_SETTINGS });
 	let isLoading = $state(false);
-	let localFederations = $state<FederationInfo[]>([]);
+	let additionalFederations = $state<FederationInfo[]>([]); // 追加取得した連合情報
 	let initialized = $state(false);
 
-	// ブラウザ環境で設定を読み込み、初期連合情報を取得（一度だけ）
+	// SSRで取得済みの視点サーバーリスト
+	let ssrViewpoints = $derived(() => {
+		const hosts = new Set<string>();
+		for (const fed of data.federations as FederationInfo[]) {
+			hosts.add(fed.sourceHost);
+		}
+		return Array.from(hosts);
+	});
+
+	// ブラウザ環境で設定を読み込み
 	$effect(() => {
 		if (browser && !initialized) {
 			initialized = true;
@@ -37,24 +46,70 @@
 			if (saved) {
 				try {
 					const parsed = JSON.parse(saved);
+					// 古い形式からの移行: viewpointServersがなければ作成
+					if (!parsed.viewpointServers) {
+						parsed.viewpointServers = [parsed.seedServer || 'misskey.io'];
+					}
+					if (!parsed.viewMode) {
+						parsed.viewMode = 'merged';
+					}
 					settings = parsed;
 				} catch {
 					// ignore
 				}
 			}
-			// 初期ロード時に種サーバーから連合情報を取得
-			fetchSeedFederations(settings.seedServer).then((feds) => {
-				localFederations = feds;
-			});
+			// 視点サーバーリストにあるがSSRデータにないサーバーから連合情報を取得
+			const ssrHosts = new Set(ssrViewpoints());
+			for (const host of settings.viewpointServers) {
+				if (!ssrHosts.has(host)) {
+					fetchSeedFederations(host).then((feds) => {
+						const existingKeys = new Set(additionalFederations.map(f => `${f.sourceHost}-${f.targetHost}`));
+						const newFeds = feds.filter(f => !existingKeys.has(`${f.sourceHost}-${f.targetHost}`));
+						if (newFeds.length > 0) {
+							additionalFederations = [...additionalFederations, ...newFeds];
+						}
+					});
+				}
+			}
 		}
 	});
 
-	// 設定変更時に保存
-	function saveSettings() {
-		if (browser) {
-			localStorage.setItem('missmatch_settings', JSON.stringify(settings));
+	// SSRデータと追加取得データをマージした連合情報
+	let allFederations = $derived(() => {
+		const ssrFeds = data.federations as FederationInfo[];
+		// 重複を除去してマージ
+		const fedMap = new Map<string, FederationInfo>();
+		for (const fed of ssrFeds) {
+			const key = `${fed.sourceHost}-${fed.targetHost}`;
+			fedMap.set(key, fed);
 		}
-	}
+		for (const fed of additionalFederations) {
+			const key = `${fed.sourceHost}-${fed.targetHost}`;
+			if (!fedMap.has(key)) {
+				fedMap.set(key, fed);
+			}
+		}
+		return Array.from(fedMap.values());
+	});
+
+	// 表示モードに応じた連合情報
+	let displayFederations = $derived(() => {
+		if (settings.viewMode === 'single') {
+			// 単一モード: 現在の視点サーバーからの連合のみ
+			return allFederations().filter(f => f.sourceHost === settings.seedServer);
+		}
+		// マージモード: 全視点サーバーからの連合
+		return allFederations().filter(f => settings.viewpointServers.includes(f.sourceHost));
+	});
+
+	// 設定変更を監視して保存
+	$effect(() => {
+		// settingsへの明示的な参照で依存関係を作成
+		const currentSettings = JSON.stringify(settings);
+		if (browser && initialized) {
+			localStorage.setItem('missmatch_settings', currentSettings);
+		}
+	});
 
 	let federationError = $state<string | null>(null);
 
@@ -82,15 +137,23 @@
 		}
 	}
 
-	// 種サーバー変更時の処理
-	async function handleSeedChange() {
-		saveSettings();
-		isLoading = true;
+	// 視点サーバー追加時の処理
+	async function handleAddViewpoint(host: string) {
+		// 既に連合情報がある場合はスキップ
+		const existingHosts = new Set([...ssrViewpoints(), ...additionalFederations.map(f => f.sourceHost)]);
+		if (existingHosts.has(host)) {
+			return;
+		}
 
+		isLoading = true;
 		try {
-			// 種サーバーから連合情報を取得
-			const federations = await fetchSeedFederations(settings.seedServer);
-			localFederations = federations;
+			const federations = await fetchSeedFederations(host);
+			// 追加データとしてマージ（既存を保持しつつ追加）
+			const existingKeys = new Set(additionalFederations.map(f => `${f.sourceHost}-${f.targetHost}`));
+			const newFeds = federations.filter(f => !existingKeys.has(`${f.sourceHost}-${f.targetHost}`));
+			if (newFeds.length > 0) {
+				additionalFederations = [...additionalFederations, ...newFeds];
+			}
 		} catch (e) {
 			console.error('Failed to fetch federations:', e);
 		} finally {
@@ -181,20 +244,9 @@
 
 	<div class="layout">
 		<aside class="sidebar">
-			<SettingsPanel bind:settings onApply={handleSeedChange} />
+			<SettingsPanel bind:settings onAddViewpoint={handleAddViewpoint} ssrViewpoints={ssrViewpoints()} />
 			<FilterPanel bind:filter availableRepositories={availableRepositories()} />
 
-			<!-- Stats -->
-			<div class="stats-card">
-				<div class="stat">
-					<span class="stat-value">{filteredServers().length}</span>
-					<span class="stat-label">サーバー</span>
-				</div>
-				<div class="stat">
-					<span class="stat-value">{localFederations.length || data.federations.length}</span>
-					<span class="stat-label">連合関係</span>
-				</div>
-			</div>
 		</aside>
 
 		<main>
@@ -217,7 +269,7 @@
 				<div class="graph-container">
 					<FederationGraph
 						servers={filteredServers()}
-						federations={localFederations.length > 0 ? localFederations : (data.federations as FederationInfo[])}
+						federations={displayFederations()}
 						seedServer={settings.seedServer}
 					/>
 				</div>
@@ -350,37 +402,6 @@
 
 	.sidebar :global(.description) {
 		color: var(--fg-muted);
-	}
-
-	/* Stats Card */
-	.stats-card {
-		display: flex;
-		gap: 0.75rem;
-		padding: 0.75rem;
-		background: var(--bg-card);
-		backdrop-filter: blur(12px);
-		border: 1px solid var(--border-color);
-		border-radius: var(--radius-lg);
-	}
-
-	.stat {
-		flex: 1;
-		text-align: center;
-	}
-
-	.stat-value {
-		display: block;
-		font-size: 1.25rem;
-		font-weight: 800;
-		color: var(--accent-400);
-		line-height: 1.2;
-	}
-
-	.stat-label {
-		font-size: 0.7rem;
-		color: var(--fg-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
 	}
 
 	/* Main */
