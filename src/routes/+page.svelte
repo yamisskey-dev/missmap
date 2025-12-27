@@ -572,14 +572,14 @@
 
 	@media (max-width: 768px) {
 		.page {
-			height: 100vh;
-			overflow: hidden;
+			min-height: 100vh;
+			overflow-y: auto;
 		}
 
 		.layout {
 			display: flex;
 			flex-direction: column;
-			height: calc(100vh - 70px);
+			min-height: calc(100vh - 70px);
 			padding: 0.25rem;
 		}
 
@@ -589,15 +589,17 @@
 
 		main {
 			flex: 1;
-			min-height: 0;
+			min-height: 50vh;
 		}
 
 		.graph-container {
 			height: 100%;
+			min-height: 50vh;
 		}
 
 		.graph-placeholder {
 			height: 100%;
+			min-height: 50vh;
 		}
 
 		.github-corner svg {
