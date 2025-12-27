@@ -5,6 +5,7 @@
 	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
 	import FederationGraph from '$lib/components/FederationGraph.svelte';
 	import ServerInfoPopup from '$lib/components/ServerInfoPopup.svelte';
+	import Legend from '$lib/components/Legend.svelte';
 	import {
 		DEFAULT_FILTER,
 		DEFAULT_SETTINGS,
@@ -249,30 +250,7 @@
 </svelte:head>
 
 <div class="page">
-	<!-- Header -->
-	<header class="header">
-		<div class="header-content">
-			<div class="logo-section">
-				<div class="logo-icon">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<circle cx="12" cy="12" r="3" />
-						<circle cx="5" cy="6" r="2" />
-						<circle cx="19" cy="6" r="2" />
-						<circle cx="5" cy="18" r="2" />
-						<circle cx="19" cy="18" r="2" />
-						<line x1="9.5" y1="10" x2="6.5" y2="7.5" />
-						<line x1="14.5" y1="10" x2="17.5" y2="7.5" />
-						<line x1="9.5" y1="14" x2="6.5" y2="16.5" />
-						<line x1="14.5" y1="14" x2="17.5" y2="16.5" />
-					</svg>
-				</div>
-				<h1 class="app-title">みすまっぷ</h1>
-			</div>
-			<p class="app-subtitle">Misskey サーバー連合マップ</p>
-		</div>
-	</header>
-
-	<!-- モバイル: パネルをヘッダー下に配置 -->
+	<!-- モバイル: パネルを上部に配置 -->
 	{#if isMobile}
 		<div class="mobile-panels">
 			<SettingsPanel bind:settings onAddViewpoint={handleAddViewpoint} ssrViewpoints={ssrViewpoints()} {isMobile} defaultOpen={false} />
@@ -286,6 +264,7 @@
 			<aside class="sidebar">
 				<SettingsPanel bind:settings onAddViewpoint={handleAddViewpoint} ssrViewpoints={ssrViewpoints()} />
 				<FilterPanel bind:filter availableRepositories={availableRepositories()} />
+				<Legend />
 			</aside>
 		{/if}
 
@@ -343,63 +322,6 @@
 		background: linear-gradient(180deg, var(--bg-primary) 0%, #0d1117 100%);
 	}
 
-	/* Header */
-	.header {
-		background: var(--bg-card);
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
-		border-bottom: 1px solid var(--border-color);
-		position: sticky;
-		top: 0;
-		z-index: 100;
-	}
-
-	.header-content {
-		max-width: 1600px;
-		margin: 0 auto;
-		padding: 0.5rem 1.5rem;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.logo-section {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.logo-icon {
-		width: 28px;
-		height: 28px;
-		color: var(--accent-500);
-		animation: pulse-glow 3s ease-in-out infinite;
-		border-radius: 50%;
-	}
-
-	.logo-icon svg {
-		width: 100%;
-		height: 100%;
-	}
-
-	.app-title {
-		font-size: 1.25rem;
-		margin: 0;
-		font-weight: 800;
-		background: linear-gradient(135deg, var(--accent-400), var(--accent-600));
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
-		letter-spacing: -0.02em;
-	}
-
-	.app-subtitle {
-		margin: 0;
-		font-size: 0.85rem;
-		color: var(--fg-muted);
-		font-weight: 500;
-	}
-
 	/* Layout */
 	.layout {
 		display: flex;
@@ -407,7 +329,7 @@
 		max-width: 1600px;
 		margin: 0 auto;
 		padding: 0.75rem 1rem;
-		height: calc(100vh - 52px);
+		height: 100vh;
 	}
 
 	/* Sidebar */
@@ -421,7 +343,8 @@
 	}
 
 	.sidebar :global(.filter-panel),
-	.sidebar :global(.settings-panel) {
+	.sidebar :global(.settings-panel),
+	.sidebar :global(.legend-panel) {
 		background: var(--bg-card);
 		backdrop-filter: blur(12px);
 		-webkit-backdrop-filter: blur(12px);
@@ -432,7 +355,8 @@
 	}
 
 	.sidebar :global(.filter-panel:hover),
-	.sidebar :global(.settings-panel:hover) {
+	.sidebar :global(.settings-panel:hover),
+	.sidebar :global(.legend-panel:hover) {
 		border-color: var(--border-color-hover);
 		box-shadow: var(--shadow-md);
 	}
@@ -563,24 +487,7 @@
 		box-shadow: 0 4px 12px rgba(134, 179, 0, 0.3);
 	}
 
-	@keyframes pulse-glow {
-		0%, 100% {
-			filter: drop-shadow(0 0 8px rgba(134, 179, 0, 0.4));
-		}
-		50% {
-			filter: drop-shadow(0 0 16px rgba(134, 179, 0, 0.6));
-		}
-	}
-
 	@media (max-width: 1024px) {
-		.header-content {
-			padding: 0.5rem 1rem;
-		}
-
-		.app-subtitle {
-			display: none;
-		}
-
 		.layout {
 			padding: 0.5rem 0.75rem;
 		}
@@ -616,7 +523,8 @@
 	@media (max-width: 768px) {
 		.layout {
 			display: block;
-			height: calc(100vh - 52px);
+			height: auto;
+			min-height: calc(100vh - 100px);
 			padding: 0.5rem;
 		}
 
@@ -629,20 +537,12 @@
 		}
 
 		.graph-container {
-			height: 100%;
+			height: calc(100vh - 120px);
+			min-height: 400px;
 		}
 
 		.graph-placeholder {
 			height: 100%;
-		}
-
-		.app-title {
-			font-size: 1.1rem;
-		}
-
-		.logo-icon {
-			width: 24px;
-			height: 24px;
 		}
 	}
 </style>
