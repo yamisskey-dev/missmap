@@ -271,7 +271,7 @@
 	<!-- モバイル: パネルを上部に配置 -->
 	{#if isMobile}
 		<div class="mobile-panels">
-			<SettingsPanel bind:settings onAddViewpoint={handleAddViewpoint} ssrViewpoints={ssrViewpoints()} {isMobile} defaultOpen={false} />
+			<SettingsPanel bind:settings onAddViewpoint={handleAddViewpoint} ssrViewpoints={ssrViewpoints()} defaultViewpoints={defaultViewpoints()} {isMobile} defaultOpen={false} />
 			<FilterPanel bind:filter availableRepositories={availableRepositories()} {isMobile} defaultOpen={false} />
 			<Legend />
 		</div>
@@ -281,7 +281,7 @@
 		<!-- デスクトップ: サイドバー -->
 		{#if !isMobile}
 			<aside class="sidebar">
-				<SettingsPanel bind:settings onAddViewpoint={handleAddViewpoint} ssrViewpoints={ssrViewpoints()} />
+				<SettingsPanel bind:settings onAddViewpoint={handleAddViewpoint} ssrViewpoints={ssrViewpoints()} defaultViewpoints={defaultViewpoints()} />
 				<FilterPanel bind:filter availableRepositories={availableRepositories()} />
 				<Legend />
 			</aside>

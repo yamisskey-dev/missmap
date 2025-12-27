@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { DEFAULT_SETTINGS, type UserSettings, type ViewMode } from '$lib/types';
 
-	let { settings = $bindable(DEFAULT_SETTINGS), onAddViewpoint, ssrViewpoints = [], isMobile = false, defaultOpen = true }: {
+	let { settings = $bindable(DEFAULT_SETTINGS), onAddViewpoint, ssrViewpoints = [], defaultViewpoints = [], isMobile = false, defaultOpen = true }: {
 		settings: UserSettings;
 		onAddViewpoint: (host: string) => void;
 		ssrViewpoints: string[];
+		defaultViewpoints: string[];
 		isMobile?: boolean;
 		defaultOpen?: boolean;
 	} = $props();
@@ -52,6 +53,21 @@
 	// SSRで取得済みかどうかを判定
 	function isFromSSR(host: string): boolean {
 		return ssrViewpoints.includes(host);
+	}
+
+	// デフォルトに戻す
+	function handleResetToDefault() {
+		if (defaultViewpoints.length > 0) {
+			settings.viewpointServers = [...defaultViewpoints];
+			settings.seedServer = defaultViewpoints[0];
+		}
+	}
+
+	// 現在の設定がデフォルトと同じかどうか
+	function isDefault(): boolean {
+		if (defaultViewpoints.length === 0) return false;
+		if (settings.viewpointServers.length !== defaultViewpoints.length) return false;
+		return defaultViewpoints.every(h => settings.viewpointServers.includes(h));
 	}
 </script>
 
@@ -169,14 +185,25 @@
 			</div>
 		</div>
 	{:else}
-		<button class="add-viewpoint-btn" onclick={() => isAdding = true}>
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<circle cx="12" cy="12" r="10" />
-				<line x1="12" y1="8" x2="12" y2="16" />
-				<line x1="8" y1="12" x2="16" y2="12" />
-			</svg>
-			視点を追加
-		</button>
+		<div class="action-buttons">
+			<button class="add-viewpoint-btn" onclick={() => isAdding = true}>
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<circle cx="12" cy="12" r="10" />
+					<line x1="12" y1="8" x2="12" y2="16" />
+					<line x1="8" y1="12" x2="16" y2="12" />
+				</svg>
+				追加
+			</button>
+			{#if !isDefault()}
+				<button class="reset-btn" onclick={handleResetToDefault} title="デフォルトに戻す">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+						<path d="M3 3v5h5" />
+					</svg>
+					リセット
+				</button>
+			{/if}
+		</div>
 	{/if}
 	{/if}
 </div>
@@ -377,18 +404,23 @@
 		color: #fca5a5;
 	}
 
-	/* Add button */
+	/* Action buttons */
+	.action-buttons {
+		display: flex;
+		gap: 0.375rem;
+	}
+
 	.add-viewpoint-btn {
-		width: 100%;
+		flex: 1;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.5rem;
-		padding: 0.625rem;
+		gap: 0.375rem;
+		padding: 0.5rem;
 		background: transparent;
 		border: 1px dashed var(--border-color);
 		border-radius: var(--radius-md);
-		font-size: 0.8rem;
+		font-size: 0.75rem;
 		font-weight: 500;
 		color: var(--fg-muted);
 		cursor: pointer;
@@ -396,11 +428,38 @@
 	}
 
 	.add-viewpoint-btn svg {
-		width: 16px;
-		height: 16px;
+		width: 14px;
+		height: 14px;
 	}
 
 	.add-viewpoint-btn:hover {
+		background: rgba(134, 179, 0, 0.1);
+		border-color: var(--accent-500);
+		color: var(--accent-400);
+	}
+
+	.reset-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.375rem;
+		padding: 0.5rem 0.75rem;
+		background: transparent;
+		border: 1px solid var(--border-color);
+		border-radius: var(--radius-md);
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: var(--fg-muted);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+
+	.reset-btn svg {
+		width: 14px;
+		height: 14px;
+	}
+
+	.reset-btn:hover {
 		background: rgba(134, 179, 0, 0.1);
 		border-color: var(--accent-500);
 		color: var(--accent-400);
