@@ -182,13 +182,19 @@
 		position: fixed;
 		z-index: 1000;
 		width: 300px;
-		background: var(--bg-card);
+		background: #fff;
 		border: 1px solid var(--border-color);
 		border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-lg);
 		overflow: hidden;
 		animation: popIn 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 		pointer-events: auto;
+	}
+
+	@media (prefers-color-scheme: dark) {
+		.popup-card {
+			background: rgba(22, 27, 34, 0.95);
+		}
 	}
 
 	@keyframes popIn {
