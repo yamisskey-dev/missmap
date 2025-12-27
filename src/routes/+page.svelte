@@ -42,7 +42,7 @@
 	$effect(() => {
 		if (browser && !initialized) {
 			initialized = true;
-			const saved = localStorage.getItem('missmatch_settings');
+			const saved = localStorage.getItem('missmap_settings');
 			if (saved) {
 				try {
 					const parsed = JSON.parse(saved);
@@ -107,7 +107,7 @@
 		// settingsへの明示的な参照で依存関係を作成
 		const currentSettings = JSON.stringify(settings);
 		if (browser && initialized) {
-			localStorage.setItem('missmatch_settings', currentSettings);
+			localStorage.setItem('missmap_settings', currentSettings);
 		}
 	});
 
@@ -214,7 +214,7 @@
 </script>
 
 <svelte:head>
-	<title>みすまっち</title>
+	<title>みすまっぷ</title>
 	<meta name="description" content="Misskeyサーバーの連合関係を視覚的に表示するインタラクティブマップ" />
 </svelte:head>
 
@@ -236,7 +236,7 @@
 						<line x1="14.5" y1="14" x2="17.5" y2="16.5" />
 					</svg>
 				</div>
-				<h1 class="app-title">みすまっち</h1>
+				<h1 class="app-title">みすまっぷ</h1>
 			</div>
 			<p class="app-subtitle">Misskey サーバー連合マップ</p>
 		</div>
