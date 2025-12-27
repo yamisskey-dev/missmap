@@ -4,15 +4,12 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
-		"dev:cf": "pnpm build && wrangler pages dev .svelte-kit/cloudflare --d1=DB --kv=CACHE",
 		"build": "vite build",
-		"preview": "pnpm build && wrangler pages dev .svelte-kit/cloudflare --d1=DB --kv=CACHE",
+		"preview": "pnpm build && wrangler pages dev .svelte-kit/cloudflare",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"db:init": "wrangler d1 execute DB --local --file=migrations/0001_init.sql"
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20251225.0",
 		"@sveltejs/adapter-cloudflare": "^6.0.0",
 		"@sveltejs/kit": "^2.21.0",
 		"@sveltejs/vite-plugin-svelte": "^5.0.0",
