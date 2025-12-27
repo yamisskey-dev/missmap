@@ -6,6 +6,7 @@
 	import FederationGraph from '$lib/components/FederationGraph.svelte';
 	import ServerInfoPopup from '$lib/components/ServerInfoPopup.svelte';
 	import Legend from '$lib/components/Legend.svelte';
+	import StatsPanel from '$lib/components/StatsPanel.svelte';
 	import {
 		DEFAULT_FILTER,
 		DEFAULT_SETTINGS,
@@ -219,17 +220,32 @@
 
 	// サーバーの登録状態を判定
 	function getRegistrationStatus(server: ServerInfo): 'open' | 'approval' | 'invite' | 'closed' {
+		// registrationOpen = false の場合
 		if (!server.registrationOpen) {
+			// 招待制（inviteOnlyフラグがある場合）
+			if (server.inviteOnly) {
+				return 'invite';
+			}
+			// それ以外は停止中
 			return 'closed';
 		}
-		if (server.inviteOnly) {
-			return 'invite';
-		}
+		// registrationOpen = true の場合
 		if (server.approvalRequired) {
 			return 'approval';
 		}
 		return 'open';
 	}
+
+	// フィルターがアクティブかどうか
+	let hasActiveFilter = $derived(() => {
+		return (
+			filter.registrationStatus.length > 0 ||
+			filter.emailRequirement !== null ||
+			filter.ageRestriction !== null ||
+			filter.repositoryUrls.length > 0 ||
+			filter.scale.length > 0
+		);
+	});
 
 	// フィルター適用後のサーバー一覧
 	let filteredServers = $derived(() => {
@@ -246,8 +262,18 @@
 				if (filter.emailRequirement === 'notRequired' && server.emailRequired) return false;
 			}
 
-			// 年齢制限
-			if (filter.ageRestriction && server.ageRestriction !== filter.ageRestriction) return false;
+			// 年齢制限（階層的にフィルタリング）
+			// 13+を選択 → 13+と18+のサーバーを表示（小学生不可以上）
+			// 18+を選択 → 18+のサーバーのみ表示（未成年不可）
+			if (filter.ageRestriction) {
+				if (filter.ageRestriction === '13+') {
+					// 13+以上: 13+ または 18+ を表示
+					if (server.ageRestriction !== '13+' && server.ageRestriction !== '18+') return false;
+				} else if (filter.ageRestriction === '18+') {
+					// 18+のみ
+					if (server.ageRestriction !== '18+') return false;
+				}
+			}
 
 			// リポジトリURL
 			if (filter.repositoryUrls.length > 0) {
@@ -298,6 +324,13 @@
 				<SettingsPanel bind:settings onAddViewpoint={handleAddViewpoint} ssrViewpoints={ssrViewpoints()} defaultViewpoints={defaultViewpoints()} />
 				<FilterPanel bind:filter availableRepositories={availableRepositories()} />
 				<Legend />
+				<StatsPanel
+					totalServers={displayServers().length}
+					filteredServers={filteredServers().length}
+					federationCount={displayFederations().length}
+					viewpointCount={settings.viewpointServers.length}
+					hasActiveFilter={hasActiveFilter()}
+				/>
 			</aside>
 		{/if}
 
@@ -377,7 +410,8 @@
 
 	.sidebar :global(.filter-panel),
 	.sidebar :global(.settings-panel),
-	.sidebar :global(.legend-panel) {
+	.sidebar :global(.legend-panel),
+	.sidebar :global(.stats-panel) {
 		background: var(--bg-card);
 		backdrop-filter: blur(12px);
 		-webkit-backdrop-filter: blur(12px);
@@ -389,7 +423,8 @@
 
 	.sidebar :global(.filter-panel:hover),
 	.sidebar :global(.settings-panel:hover),
-	.sidebar :global(.legend-panel:hover) {
+	.sidebar :global(.legend-panel:hover),
+	.sidebar :global(.stats-panel:hover) {
 		border-color: var(--border-color-hover);
 		box-shadow: var(--shadow-md);
 	}
