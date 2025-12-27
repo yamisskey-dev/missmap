@@ -189,12 +189,16 @@ export const load: PageServerLoad = async ({ fetch }) => {
 		const federationsArrays = await Promise.all(federationsPromises);
 		const federations = federationsArrays.flat();
 
+		// デフォルトの視点サーバーリストを返す
+		const defaultViewpoints = largeServers.map(s => s.host);
+
 		return {
 			servers: japaneseServers,
-			federations
+			federations,
+			defaultViewpoints
 		};
 	} catch (e) {
 		console.error('Failed to load servers:', e);
-		return { servers: [], federations: [] };
+		return { servers: [], federations: [], defaultViewpoints: [] };
 	}
 };

@@ -55,6 +55,11 @@
 		return Array.from(hosts);
 	});
 
+	// SSRから取得したデフォルト視点サーバー
+	let defaultViewpoints = $derived(() => {
+		return (data.defaultViewpoints as string[]) ?? [];
+	});
+
 	// ブラウザ環境で設定を読み込み
 	$effect(() => {
 		if (browser && !initialized) {
@@ -74,6 +79,10 @@
 				} catch {
 					// ignore
 				}
+			} else if (defaultViewpoints().length > 0) {
+				// ローカルストレージに設定がない場合、SSRのデフォルト視点サーバーを使用
+				settings.viewpointServers = defaultViewpoints();
+				settings.seedServer = defaultViewpoints()[0];
 			}
 			// 視点サーバーリストにあるがSSRデータにないサーバーから連合情報を取得
 			const ssrHosts = new Set(ssrViewpoints());

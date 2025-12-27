@@ -527,11 +527,15 @@
 		cy.nodes().ungrabify();
 
 		cy.on('layoutstop', () => {
-			// 視点サーバーを中心に配置
-			if (seedServer && cy) {
-				const seedNode = cy.getElementById(seedServer);
-				if (seedNode.length > 0) {
-					cy.center(seedNode);
+			// 複数の視点サーバーがある場合は全体表示、単一の場合はそれを中心に
+			if (cy) {
+				if (viewpointServers.length > 1) {
+					cy.fit(undefined, 50);
+				} else if (seedServer) {
+					const seedNode = cy.getElementById(seedServer);
+					if (seedNode.length > 0) {
+						cy.center(seedNode);
+					}
 				}
 			}
 		});
@@ -563,7 +567,7 @@
 				<line x1="8" y1="11" x2="14" y2="11" />
 			</svg>
 		</button>
-		<button class="control-btn" onclick={() => { if (seedServer && cy) { const node = cy.getElementById(seedServer); if (node.length) cy.center(node); } }} title="中心に戻る">
+		<button class="control-btn" onclick={() => { if (cy) { if (viewpointServers.length > 1) { cy.fit(undefined, 50); } else if (seedServer) { const node = cy.getElementById(seedServer); if (node.length) cy.center(node); } } }} title="中心に戻る">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<circle cx="12" cy="12" r="10" />
 				<circle cx="12" cy="12" r="3" />
