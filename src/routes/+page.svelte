@@ -16,6 +16,22 @@
 
 	let { data }: { data: PageData } = $props();
 
+	// モバイル用サイドバー開閉状態
+	let isMobile = $state(false);
+	let sidebarOpen = $state(false);
+
+	// ブラウザ環境でモバイル判定
+	$effect(() => {
+		if (browser) {
+			const checkMobile = () => {
+				isMobile = window.innerWidth <= 768;
+			};
+			checkMobile();
+			window.addEventListener('resize', checkMobile);
+			return () => window.removeEventListener('resize', checkMobile);
+		}
+	});
+
 	interface FederationInfo {
 		sourceHost: string;
 		targetHost: string;
@@ -239,17 +255,47 @@
 				<h1 class="app-title">みすまっぷ</h1>
 			</div>
 			<p class="app-subtitle">Misskey サーバー連合マップ</p>
+			{#if isMobile}
+				<button class="menu-btn" onclick={() => sidebarOpen = true}>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<line x1="3" y1="6" x2="21" y2="6" />
+						<line x1="3" y1="12" x2="21" y2="12" />
+						<line x1="3" y1="18" x2="21" y2="18" />
+					</svg>
+				</button>
+			{/if}
 		</div>
 	</header>
 
 	<div class="layout">
-		<aside class="sidebar">
-			<SettingsPanel bind:settings onAddViewpoint={handleAddViewpoint} ssrViewpoints={ssrViewpoints()} />
-			<FilterPanel bind:filter availableRepositories={availableRepositories()} />
+		{#if isMobile}
+			<!-- モバイル: グラフを先に表示、サイドバーはオーバーレイ -->
+			<main>
+		{/if}
 
-		</aside>
+		{#if !isMobile || sidebarOpen}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			{#if isMobile && sidebarOpen}
+				<div class="sidebar-overlay" onclick={() => sidebarOpen = false}></div>
+			{/if}
+			<aside class="sidebar" class:mobile-open={isMobile && sidebarOpen}>
+				{#if isMobile}
+					<button class="sidebar-close" onclick={() => sidebarOpen = false}>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
+					</button>
+				{/if}
+				<SettingsPanel bind:settings onAddViewpoint={handleAddViewpoint} ssrViewpoints={ssrViewpoints()} />
+				<FilterPanel bind:filter availableRepositories={availableRepositories()} />
+			</aside>
+		{/if}
 
-		<main>
+		{#if !isMobile}
+			<main>
+		{/if}
 			{#if federationError}
 				<div class="error-banner">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="error-icon">
@@ -544,30 +590,106 @@
 		}
 	}
 
+	/* Mobile menu button */
+	.menu-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		background: var(--bg-card);
+		border: 1px solid var(--border-color);
+		border-radius: var(--radius-md);
+		color: var(--fg-primary);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+
+	.menu-btn:hover {
+		background: var(--bg-card-hover);
+		border-color: var(--border-color-hover);
+	}
+
+	.menu-btn svg {
+		width: 20px;
+		height: 20px;
+	}
+
+	/* Mobile sidebar overlay */
+	.sidebar-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.6);
+		z-index: 200;
+		animation: fadeIn 0.2s ease-out;
+	}
+
+	.sidebar-close {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 36px;
+		height: 36px;
+		background: var(--bg-card);
+		border: 1px solid var(--border-color);
+		border-radius: var(--radius-md);
+		color: var(--fg-primary);
+		cursor: pointer;
+		margin-left: auto;
+		margin-bottom: 0.5rem;
+		transition: all var(--transition-fast);
+	}
+
+	.sidebar-close:hover {
+		background: var(--bg-card-hover);
+		border-color: var(--border-color-hover);
+	}
+
+	.sidebar-close svg {
+		width: 18px;
+		height: 18px;
+	}
+
 	@media (max-width: 768px) {
 		.layout {
-			flex-direction: column;
-			height: auto;
-			min-height: calc(100vh - 52px);
+			display: block;
+			height: calc(100vh - 52px);
+			padding: 0.5rem;
 		}
 
 		.sidebar {
-			width: 100%;
+			display: none;
+		}
+
+		.sidebar.mobile-open {
+			display: flex;
+			position: fixed;
+			top: 0;
+			right: 0;
+			bottom: 0;
+			width: 300px;
+			max-width: 85vw;
+			z-index: 201;
+			padding: 1rem;
+			background: var(--bg-primary);
+			border-left: 1px solid var(--border-color);
+			animation: slideIn 0.2s ease-out;
+			overflow-y: auto;
 		}
 
 		main {
-			flex: 1;
-			min-height: 400px;
+			height: 100%;
 		}
 
 		.graph-container {
-			min-height: 400px;
-			height: 60vh;
+			height: 100%;
 		}
 
 		.graph-placeholder {
-			min-height: 400px;
-			height: 60vh;
+			height: 100%;
 		}
 
 		.app-title {
@@ -577,6 +699,15 @@
 		.logo-icon {
 			width: 24px;
 			height: 24px;
+		}
+	}
+
+	@keyframes slideIn {
+		from {
+			transform: translateX(100%);
+		}
+		to {
+			transform: translateX(0);
 		}
 	}
 </style>
