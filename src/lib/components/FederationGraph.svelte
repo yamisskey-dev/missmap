@@ -50,9 +50,14 @@
 		// エッジ用
 		source?: string;
 		target?: string;
-		relation?: 'federation' | 'blocked' | 'suspended' | 'connectivity-ok' | 'connectivity-ng';
+		relation?: 'federation' | 'blocked' | 'suspended' | 'connectivity-ok' | 'connectivity-ng' | 'connectivity-partial';
 		isMutual?: boolean;
 		connectivityError?: string;
+		// 疎通チェック詳細（各方向の状態）
+		forwardOk?: boolean;
+		backwardOk?: boolean;
+		forwardError?: string;
+		backwardError?: string;
 	}>({
 		visible: false,
 		x: 0,
@@ -968,22 +973,21 @@
 			const isMutualOk = edge.data('isMutualOk') || false;
 			const forwardOk = edge.data('forwardOk');
 			const backwardOk = edge.data('backwardOk');
+			const forwardError = edge.data('forwardError');
+			const backwardError = edge.data('backwardError');
 
 			// 関係の種類を判定
-			let relation: 'federation' | 'blocked' | 'suspended' | 'connectivity-ok' | 'connectivity-ng' = 'federation';
+			let relation: 'federation' | 'blocked' | 'suspended' | 'connectivity-ok' | 'connectivity-ng' | 'connectivity-partial' = 'federation';
 			let connectivityError: string | undefined;
 
 			if (isConnectivity) {
 				if (isMutualOk) {
 					relation = 'connectivity-ok';
+				} else if (forwardOk || backwardOk) {
+					// 片方だけOK
+					relation = 'connectivity-partial';
 				} else {
 					relation = 'connectivity-ng';
-					// エラー詳細を取得
-					if (!forwardOk) {
-						connectivityError = edge.data('forwardError');
-					} else if (!backwardOk) {
-						connectivityError = edge.data('backwardError');
-					}
 				}
 			} else if (isSuspended) {
 				relation = 'suspended';
@@ -1009,7 +1013,12 @@
 					target: targetId,
 					relation,
 					isMutual: isMutual || isMutualOk,
-					connectivityError
+					connectivityError,
+					// 疎通チェック詳細
+					forwardOk: isConnectivity ? forwardOk : undefined,
+					backwardOk: isConnectivity ? backwardOk : undefined,
+					forwardError: isConnectivity ? forwardError : undefined,
+					backwardError: isConnectivity ? backwardError : undefined
 				};
 			}
 
@@ -1108,6 +1117,7 @@
 			class:blocked={tooltip.relation === 'blocked'}
 			class:suspended={tooltip.relation === 'suspended'}
 			class:connectivity-ok={tooltip.relation === 'connectivity-ok'}
+			class:connectivity-partial={tooltip.relation === 'connectivity-partial'}
 			class:connectivity-ng={tooltip.relation === 'connectivity-ng'}
 			style="left: {tooltip.x}px; top: {tooltip.y}px;"
 		>
@@ -1125,21 +1135,49 @@
 					{:else if tooltip.relation === 'connectivity-ok'}
 						<span class="relation-icon">✓</span>
 						<span class="relation-text">相互疎通OK</span>
+					{:else if tooltip.relation === 'connectivity-partial'}
+						<span class="relation-icon">△</span>
+						<span class="relation-text">片方向のみ疎通</span>
 					{:else if tooltip.relation === 'connectivity-ng'}
 						<span class="relation-icon">✗</span>
-						<span class="relation-text">疎通NG</span>
+						<span class="relation-text">相互疎通NG</span>
 					{:else}
 						<span class="relation-icon">🔗</span>
 						<span class="relation-text">連合</span>
 					{/if}
 				</div>
-				<div class="edge-hosts">
-					<span class="edge-source">{tooltip.source}</span>
-					<span class="edge-arrow">{tooltip.relation === 'federation' || tooltip.isMutual ? '↔' : '→'}</span>
-					<span class="edge-target">{tooltip.target}</span>
-				</div>
-				{#if tooltip.connectivityError}
-					<div class="connectivity-error">{tooltip.connectivityError}</div>
+				{#if tooltip.relation?.startsWith('connectivity')}
+					<!-- 疎通チェックは各方向の詳細を表示 -->
+					<div class="connectivity-details">
+						<div class="connectivity-direction">
+							<span class="direction-hosts">{tooltip.source} → {tooltip.target}</span>
+							{#if tooltip.forwardOk}
+								<span class="direction-status ok">OK</span>
+							{:else}
+								<span class="direction-status ng">NG</span>
+								{#if tooltip.forwardError}
+									<span class="direction-error">({tooltip.forwardError})</span>
+								{/if}
+							{/if}
+						</div>
+						<div class="connectivity-direction">
+							<span class="direction-hosts">{tooltip.target} → {tooltip.source}</span>
+							{#if tooltip.backwardOk}
+								<span class="direction-status ok">OK</span>
+							{:else}
+								<span class="direction-status ng">NG</span>
+								{#if tooltip.backwardError}
+									<span class="direction-error">({tooltip.backwardError})</span>
+								{/if}
+							{/if}
+						</div>
+					</div>
+				{:else}
+					<div class="edge-hosts">
+						<span class="edge-source">{tooltip.source}</span>
+						<span class="edge-arrow">{tooltip.relation === 'federation' || tooltip.isMutual ? '↔' : '→'}</span>
+						<span class="edge-target">{tooltip.target}</span>
+					</div>
 				{/if}
 			{/if}
 		</div>
@@ -1326,6 +1364,63 @@
 
 	.graph-tooltip.connectivity-ng .relation-icon {
 		color: #c084fc;
+	}
+
+	/* 片方向疎通（オレンジ） */
+	.graph-tooltip.edge-tooltip.connectivity-partial {
+		border-color: rgba(255, 170, 0, 0.5);
+		background: rgba(255, 170, 0, 0.15);
+	}
+
+	.graph-tooltip.connectivity-partial .relation-text {
+		color: #ffaa00;
+	}
+
+	.graph-tooltip.connectivity-partial .relation-icon {
+		color: #ffaa00;
+	}
+
+	/* 疎通詳細（各方向の状態） */
+	.connectivity-details {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		margin-top: 0.25rem;
+		padding-top: 0.25rem;
+		border-top: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	.connectivity-direction {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.65rem;
+	}
+
+	.direction-hosts {
+		color: var(--fg-secondary);
+		min-width: 8rem;
+	}
+
+	.direction-status {
+		font-weight: 600;
+		padding: 0.0625rem 0.25rem;
+		border-radius: 2px;
+	}
+
+	.direction-status.ok {
+		color: #00d9ff;
+		background: rgba(0, 217, 255, 0.15);
+	}
+
+	.direction-status.ng {
+		color: #c084fc;
+		background: rgba(168, 85, 247, 0.15);
+	}
+
+	.direction-error {
+		font-size: 0.55rem;
+		color: var(--fg-muted);
 	}
 
 	.connectivity-error {
