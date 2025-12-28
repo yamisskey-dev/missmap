@@ -5,7 +5,6 @@
 	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
 	import FederationGraph from '$lib/components/FederationGraph.svelte';
 	import ServerInfoPopup from '$lib/components/ServerInfoPopup.svelte';
-	import Legend from '$lib/components/Legend.svelte';
 	import StatsPanel from '$lib/components/StatsPanel.svelte';
 	import SearchPanel from '$lib/components/SearchPanel.svelte';
 	import ActiveFederationsPanel from '$lib/components/ActiveFederationsPanel.svelte';
@@ -317,7 +316,6 @@
 				onFocusServer={handleFocusViewpoint}
 			/>
 			<FilterPanel bind:filter availableRepositories={availableRepositories()} {isMobile} defaultOpen={false} />
-			<Legend />
 			<div class="mobile-stats-row">
 				<StatsPanel
 					totalServers={displayServers().length}
@@ -345,7 +343,6 @@
 					onFocusServer={handleFocusViewpoint}
 				/>
 				<FilterPanel bind:filter availableRepositories={availableRepositories()} />
-				<Legend />
 				<StatsPanel
 					totalServers={displayServers().length}
 					filteredServers={filteredServers().length}
@@ -437,7 +434,6 @@
 
 	.sidebar :global(.filter-panel),
 	.sidebar :global(.settings-panel),
-	.sidebar :global(.legend-panel),
 	.sidebar :global(.search-panel),
 	.sidebar :global(.stats-panel),
 	.sidebar :global(.active-federations-panel) {
@@ -452,7 +448,6 @@
 
 	.sidebar :global(.filter-panel:hover),
 	.sidebar :global(.settings-panel:hover),
-	.sidebar :global(.legend-panel:hover),
 	.sidebar :global(.search-panel:hover),
 	.sidebar :global(.stats-panel:hover),
 	.sidebar :global(.active-federations-panel:hover) {
@@ -607,7 +602,6 @@
 
 	.mobile-panels :global(.settings-panel),
 	.mobile-panels :global(.filter-panel),
-	.mobile-panels :global(.legend-panel),
 	.mobile-panels :global(.search-panel) {
 		background: var(--bg-card);
 		border: 1px solid var(--border-color);
@@ -645,35 +639,6 @@
 		border-right: 1px solid var(--border-color);
 	}
 
-	.mobile-panels :global(.legend-panel) {
-		padding: 0.375rem 0.5rem;
-	}
-
-	.mobile-panels :global(.legend-grid) {
-		display: flex;
-		justify-content: space-around;
-		gap: 0;
-	}
-
-	.mobile-panels :global(.legend-item) {
-		flex-direction: row;
-		align-items: center;
-		gap: 0.125rem;
-	}
-
-	.mobile-panels :global(.legend-label) {
-		font-size: 0.6rem;
-	}
-
-	.mobile-panels :global(.legend-value) {
-		font-size: 0.6rem;
-	}
-
-	.mobile-panels :global(.legend-label::after) {
-		content: '=';
-		margin-left: 0.125rem;
-	}
-
 	@media (max-width: 768px) {
 		.page {
 			min-height: 100vh;
@@ -683,7 +648,6 @@
 		.layout {
 			display: flex;
 			flex-direction: column;
-			min-height: calc(100vh - 70px);
 			padding: 0.25rem;
 		}
 
@@ -692,18 +656,17 @@
 		}
 
 		main {
-			flex: 1;
-			min-height: 50vh;
+			/* 固定高さでスクロール可能に */
+			height: 60vh;
+			flex-shrink: 0;
 		}
 
 		.graph-container {
 			height: 100%;
-			min-height: 50vh;
 		}
 
 		.graph-placeholder {
 			height: 100%;
-			min-height: 50vh;
 		}
 
 		.github-corner {

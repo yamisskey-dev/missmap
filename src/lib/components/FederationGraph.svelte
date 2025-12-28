@@ -762,6 +762,13 @@
 		</button>
 	</div>
 
+	<!-- Legend overlay (左下) -->
+	<div class="graph-legend">
+		<div class="legend-item"><span class="legend-key">色</span><span class="legend-val">ソフトウェア</span></div>
+		<div class="legend-item"><span class="legend-key">大きさ</span><span class="legend-val">ユーザー数</span></div>
+		<div class="legend-item"><span class="legend-key">線の太さ</span><span class="legend-val">やり取り量</span></div>
+		<div class="legend-item"><span class="legend-key">中心</span><span class="legend-val">繋がり多</span></div>
+	</div>
 </div>
 
 <style>
@@ -856,6 +863,38 @@
 		height: 18px;
 	}
 
+	/* Legend overlay */
+	.graph-legend {
+		position: absolute;
+		bottom: 1rem;
+		left: 1rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		padding: 0.5rem 0.625rem;
+		background: rgba(0, 0, 0, 0.5);
+		backdrop-filter: blur(8px);
+		border: 1px solid var(--border-color);
+		border-radius: var(--radius-md);
+		z-index: 10;
+	}
+
+	.legend-item {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.65rem;
+	}
+
+	.legend-key {
+		color: var(--fg-muted);
+		min-width: 3.5rem;
+	}
+
+	.legend-val {
+		color: var(--fg-secondary);
+	}
+
 	@media (max-width: 768px) {
 		.graph-controls {
 			top: 0.75rem;
@@ -870,6 +909,20 @@
 		.control-btn svg {
 			width: 16px;
 			height: 16px;
+		}
+
+		.graph-legend {
+			bottom: 0.5rem;
+			left: 0.5rem;
+			padding: 0.375rem 0.5rem;
+		}
+
+		.legend-item {
+			font-size: 0.6rem;
+		}
+
+		.legend-key {
+			min-width: 3rem;
 		}
 	}
 </style>
