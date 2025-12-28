@@ -137,6 +137,7 @@
 	.search-panel {
 		padding: 0.5rem 0.75rem;
 		position: relative;
+		z-index: 10;
 	}
 
 	.panel-header {
@@ -221,11 +222,11 @@
 		margin: 0.25rem 0 0;
 		padding: 0.25rem;
 		list-style: none;
-		background: var(--bg-card);
+		background: var(--bg-secondary);
 		border: 1px solid var(--border-color);
 		border-radius: var(--radius-md);
 		box-shadow: var(--shadow-lg);
-		z-index: 100;
+		z-index: 1000;
 		max-height: 200px;
 		overflow-y: auto;
 	}
