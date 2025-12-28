@@ -126,6 +126,47 @@
 			{/each}
 		</div>
 	</section>
+
+	<section>
+		<h4>つながり</h4>
+		<div class="chip-group">
+			<button
+				class="filter-chip edge-chip federation"
+				class:active={filter.edgeVisibility.showFederation}
+				onclick={() => filter.edgeVisibility = { ...filter.edgeVisibility, showFederation: !filter.edgeVisibility.showFederation }}
+			>
+				連合
+			</button>
+			<button
+				class="filter-chip edge-chip blocked"
+				class:active={filter.edgeVisibility.showBlocked}
+				onclick={() => filter.edgeVisibility = { ...filter.edgeVisibility, showBlocked: !filter.edgeVisibility.showBlocked }}
+			>
+				ブロック
+			</button>
+			<button
+				class="filter-chip edge-chip suspended"
+				class:active={filter.edgeVisibility.showSuspended}
+				onclick={() => filter.edgeVisibility = { ...filter.edgeVisibility, showSuspended: !filter.edgeVisibility.showSuspended }}
+			>
+				配信停止
+			</button>
+			<button
+				class="filter-chip edge-chip connectivity-ok"
+				class:active={filter.edgeVisibility.showConnectivityOk}
+				onclick={() => filter.edgeVisibility = { ...filter.edgeVisibility, showConnectivityOk: !filter.edgeVisibility.showConnectivityOk }}
+			>
+				疎通OK
+			</button>
+			<button
+				class="filter-chip edge-chip connectivity-ng"
+				class:active={filter.edgeVisibility.showConnectivityNg}
+				onclick={() => filter.edgeVisibility = { ...filter.edgeVisibility, showConnectivityNg: !filter.edgeVisibility.showConnectivityNg }}
+			>
+				疎通NG
+			</button>
+		</div>
+	</section>
 	{/if}
 </aside>
 
@@ -220,5 +261,41 @@
 		background: rgba(134, 179, 0, 0.15);
 		border-color: var(--accent-600);
 		color: var(--accent-400);
+	}
+
+	/* Edge chips - 色付きのアクティブ状態 */
+	.edge-chip.federation.active {
+		background: rgba(134, 179, 0, 0.15);
+		border-color: var(--accent-600);
+		color: var(--accent-400);
+	}
+
+	.edge-chip.blocked.active {
+		background: rgba(255, 71, 87, 0.15);
+		border-color: #ff4757;
+		color: #ff6b6b;
+	}
+
+	.edge-chip.suspended.active {
+		background: rgba(255, 165, 2, 0.15);
+		border-color: #ffa502;
+		color: #ffbe76;
+	}
+
+	.edge-chip.connectivity-ok.active {
+		background: rgba(59, 130, 246, 0.15);
+		border-color: #3b82f6;
+		color: #60a5fa;
+	}
+
+	.edge-chip.connectivity-ng.active {
+		background: rgba(168, 85, 247, 0.15);
+		border-color: #a855f7;
+		color: #c084fc;
+	}
+
+	/* 非アクティブ時は薄く */
+	.edge-chip:not(.active) {
+		opacity: 0.5;
 	}
 </style>

@@ -11,12 +11,14 @@
 	import {
 		DEFAULT_FILTER,
 		DEFAULT_SETTINGS,
+		DEFAULT_EDGE_VISIBILITY,
 		type ServerFilter,
 		type ServerScale,
 		type UserSettings,
 		type RegistrationStatus,
 		type EmailRequirement,
-		type AgeRestriction
+		type AgeRestriction,
+		type EdgeVisibility
 	} from '$lib/types';
 	import { getServerScale, type ServerInfo } from '$lib/collector';
 	import { browser } from '$app/environment';
@@ -90,6 +92,19 @@
 				// 短縮形ならフルURLに変換
 				return REPO_SHORTCUTS[r.toLowerCase()] || decodeURIComponent(r);
 			});
+		}
+
+		// エッジ表示設定（短縮形: fed/blk/sus/cok/cng、~区切り、非表示のもののみ指定）
+		const hideEdges = params.get('hide');
+		if (hideEdges) {
+			const edgeVisibility: EdgeVisibility = { ...DEFAULT_EDGE_VISIBILITY };
+			const hideList = hideEdges.split('~');
+			if (hideList.includes('fed')) edgeVisibility.showFederation = false;
+			if (hideList.includes('blk')) edgeVisibility.showBlocked = false;
+			if (hideList.includes('sus')) edgeVisibility.showSuspended = false;
+			if (hideList.includes('cok')) edgeVisibility.showConnectivityOk = false;
+			if (hideList.includes('cng')) edgeVisibility.showConnectivityNg = false;
+			filter.edgeVisibility = edgeVisibility;
 		}
 
 		return filter;
@@ -192,6 +207,17 @@
 			params.set('select', select);
 		}
 
+		// エッジ表示設定（非表示のもののみを短縮形で指定）
+		const hiddenEdges: string[] = [];
+		if (!filter.edgeVisibility.showFederation) hiddenEdges.push('fed');
+		if (!filter.edgeVisibility.showBlocked) hiddenEdges.push('blk');
+		if (!filter.edgeVisibility.showSuspended) hiddenEdges.push('sus');
+		if (!filter.edgeVisibility.showConnectivityOk) hiddenEdges.push('cok');
+		if (!filter.edgeVisibility.showConnectivityNg) hiddenEdges.push('cng');
+		if (hiddenEdges.length > 0) {
+			params.set('hide', hiddenEdges.join('~'));
+		}
+
 		return params;
 	}
 
@@ -261,6 +287,15 @@
 	let defaultViewpoints = $derived(() => {
 		return (data.defaultViewpoints as string[]) ?? [];
 	});
+
+	// エッジ表示設定（変更検知のため明示的に新しいオブジェクトを生成）
+	let edgeVisibility = $derived(() => ({
+		showFederation: filter.edgeVisibility.showFederation,
+		showBlocked: filter.edgeVisibility.showBlocked,
+		showSuspended: filter.edgeVisibility.showSuspended,
+		showConnectivityOk: filter.edgeVisibility.showConnectivityOk,
+		showConnectivityNg: filter.edgeVisibility.showConnectivityNg
+	}));
 
 	// ブラウザ環境で設定を読み込み
 	$effect(() => {
@@ -610,6 +645,7 @@
 							focusHost={focusHost}
 							viewpointServers={settings.viewpointServers}
 							{privateServers}
+							edgeVisibility={edgeVisibility()}
 							initialSelection={selectedItem}
 							onSelectServer={handleSelectServer}
 							onSelectEdge={handleSelectEdge}
@@ -683,6 +719,7 @@
 						focusHost={focusHost}
 						viewpointServers={settings.viewpointServers}
 						{privateServers}
+						edgeVisibility={edgeVisibility()}
 						initialSelection={selectedItem}
 						onSelectServer={handleSelectServer}
 						onSelectEdge={handleSelectEdge}

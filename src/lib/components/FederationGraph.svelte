@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import type { ServerInfo } from '$lib/collector';
 	import { getRepositoryColor, blendColors } from '$lib/collector';
+	import { DEFAULT_EDGE_VISIBILITY, type EdgeVisibility } from '$lib/types';
 
 	// メディアプロキシ経由でアイコンを取得
 	const MEDIA_PROXY = 'https://media.yami.ski/proxy/image.webp';
@@ -25,6 +26,7 @@
 		focusHost = '',
 		viewpointServers = [],
 		privateServers = new Set<string>(),
+		edgeVisibility = DEFAULT_EDGE_VISIBILITY,
 		initialSelection = null,
 		onSelectServer,
 		onSelectEdge,
@@ -35,6 +37,7 @@
 		focusHost?: string;
 		viewpointServers?: string[];
 		privateServers?: Set<string>;
+		edgeVisibility?: EdgeVisibility;
 		initialSelection?: { type: 'node' | 'edge'; value: string } | null;
 		onSelectServer?: (server: ServerInfo | null, position: { x: number; y: number } | null) => void;
 		onSelectEdge?: (sourceHost: string, targetHost: string) => void;
@@ -102,14 +105,18 @@
 	function destroyCy() {
 		if (cy && !isDestroying) {
 			isDestroying = true;
+			const cyInstance = cy;
+			cy = null; // 先にnullにして他の処理がアクセスしないようにする
 			try {
-				// レイアウトを停止してから破棄
-				cy.stop();
-				cy.destroy();
+				// 全てのアニメーションとレイアウトを停止
+				cyInstance.stop(true, true);
+				// イベントリスナーを全て削除
+				cyInstance.removeAllListeners();
+				// 破棄
+				cyInstance.destroy();
 			} catch {
 				// 破棄中のエラーは無視
 			}
-			cy = null;
 			isDestroying = false;
 		}
 	}
@@ -340,6 +347,67 @@
 		}
 	});
 
+	// エッジ表示設定を適用する関数
+	function applyEdgeVisibility() {
+		if (!cy || isDestroying) return;
+
+		const { showFederation, showBlocked, showSuspended, showConnectivityOk, showConnectivityNg } = edgeVisibility;
+
+		try {
+			// 通常の連合エッジの表示/非表示（isFederationがtrueでisBlocked/isSuspendedがfalse）
+			const federationEdges = cy.edges('[?isFederation][!isBlocked][!isSuspended]');
+			federationEdges.style('display', showFederation ? 'element' : 'none');
+
+			// ブロックエッジの表示/非表示
+			const blockedEdges = cy.edges('[?isBlocked][!isSuspended]');
+			blockedEdges.style('display', showBlocked ? 'element' : 'none');
+
+			// 配信停止エッジの表示/非表示
+			const suspendedEdges = cy.edges('[?isSuspended]');
+			suspendedEdges.style('display', showSuspended ? 'element' : 'none');
+
+			// 疎通エッジの表示/非表示（OK/NGそれぞれ）
+			const connectivityEdges = cy.edges('[?isConnectivity]');
+			connectivityEdges.forEach((edge: import('cytoscape').EdgeSingular) => {
+				const isMutualOk = edge.data('isMutualOk');
+				if (isMutualOk) {
+					// 疎通OK（両方向OK）
+					edge.style('display', showConnectivityOk ? 'element' : 'none');
+				} else {
+					// 疎通NG（片方向のみ or 両方NG）
+					edge.style('display', showConnectivityNg ? 'element' : 'none');
+				}
+			});
+
+			// 孤立ノード（表示中のエッジが0のノード）を非表示にする
+			cy.nodes().forEach((node: import('cytoscape').NodeSingular) => {
+				// このノードに接続している表示中のエッジをカウント
+				const visibleEdges = node.connectedEdges().filter((edge: import('cytoscape').EdgeSingular) => {
+					return edge.style('display') !== 'none';
+				});
+				// 表示中のエッジがなければノードを非表示
+				node.style('display', visibleEdges.length > 0 ? 'element' : 'none');
+			});
+		} catch (e) {
+			// Cytoscapeが破棄されている可能性があるため、エラーは無視
+			console.warn('Failed to update edge visibility:', e);
+		}
+	}
+
+	// edgeVisibilityが変更されたらエッジの表示/非表示を切り替え
+	$effect(() => {
+		// 明示的に各プロパティを参照して依存関係を作成
+		const _showFed = edgeVisibility.showFederation;
+		const _showBlk = edgeVisibility.showBlocked;
+		const _showSus = edgeVisibility.showSuspended;
+		const _showCok = edgeVisibility.showConnectivityOk;
+		const _showCng = edgeVisibility.showConnectivityNg;
+
+		if (cy && !isDestroying) {
+			applyEdgeVisibility();
+		}
+	});
+
 	// ノードにフォーカス（カメラ移動＋一時ハイライト）
 	function focusOnNode(host: string) {
 		if (!cy) return;
@@ -512,6 +580,7 @@
 					weight: e.weight,
 					color: edgeColor,
 					opacity,
+					isFederation: true,
 					isBlocked: false,
 					isSuspended: false
 				}
