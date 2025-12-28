@@ -3,6 +3,13 @@
 	import type { ServerInfo } from '$lib/collector';
 	import { getRepositoryColor, blendColors } from '$lib/collector';
 
+	// メディアプロキシ経由でアイコンを取得
+	const MEDIA_PROXY = 'https://media.yami.ski/proxy/image.webp';
+	function proxyIconUrl(url: string | null): string {
+		if (!url) return '';
+		return `${MEDIA_PROXY}?url=${encodeURIComponent(url)}`;
+	}
+
 	interface Federation {
 		sourceHost: string;
 		targetHost: string;
@@ -388,16 +395,18 @@
 
 				label = server.name ?? server.host;
 				repositoryUrl = server.repositoryUrl;
-				// MisskeyHubのアイコンURLを使用（CORSの問題があるためクライアント取得は断念）
-				iconUrl = server.iconUrl || '';
-				hasIcon = !!server.iconUrl;
+				// メディアプロキシ経由でアイコンを取得（CORSを回避）
+				// iconUrlがない場合はfaviconをフォールバック
+				const originalIconUrl = server.iconUrl || `https://${host}/favicon.ico`;
+				iconUrl = proxyIconUrl(originalIconUrl);
+				hasIcon = true;
 			} else {
-				// 未知のサーバー（連合先）
+				// 未知のサーバー（連合先）- faviconを試す
 				size = 15;
 				label = host;
 				repositoryUrl = null;
-				iconUrl = '';
-				hasIcon = false;
+				iconUrl = proxyIconUrl(`https://${host}/favicon.ico`);
+				hasIcon = true; // faviconがあると仮定
 			}
 
 			const isViewpoint = viewpointServers.includes(host);
