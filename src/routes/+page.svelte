@@ -40,6 +40,8 @@
 		targetHost: string;
 		usersCount: number;
 		notesCount: number;
+		isBlocked: boolean;
+		isSuspended: boolean;
 	}
 
 	let filter: ServerFilter = $state({ ...DEFAULT_FILTER });

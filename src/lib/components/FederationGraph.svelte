@@ -368,13 +368,15 @@
 			if (!sourceAllowed || !targetAllowed) continue;
 
 			// ブロック関係は方向性があるのでソートしない（sourceがtargetをブロック）
+			// ブロック: 赤、サスペンド: オレンジ
+			const edgeColor = fed.isSuspended ? '#ffa502' : '#ff4757';
 			blockedEdges.push({
 				data: {
 					id: `blocked-${fed.sourceHost}-${fed.targetHost}`,
 					source: fed.sourceHost,
 					target: fed.targetHost,
 					weight: 3,
-					color: fed.isSuspended ? '#ff6b6b' : '#ff4757', // サスペンドは少し薄い赤
+					color: edgeColor,
 					opacity: 0.8,
 					isBlocked: fed.isBlocked,
 					isSuspended: fed.isSuspended
@@ -867,6 +869,7 @@
 		<div class="legend-item"><span class="legend-key">線の太さ</span><span class="legend-val">やり取り量</span></div>
 		<div class="legend-item"><span class="legend-key">中心</span><span class="legend-val">繋がり多</span></div>
 		<div class="legend-item legend-blocked"><span class="legend-key">赤破線</span><span class="legend-val">ブロック</span></div>
+		<div class="legend-item legend-suspended"><span class="legend-key">橙破線</span><span class="legend-val">配信停止</span></div>
 	</div>
 </div>
 
@@ -1041,6 +1044,14 @@
 
 	.legend-blocked .legend-val {
 		color: #ff6b6b;
+	}
+
+	.legend-suspended .legend-key {
+		color: #ffa502;
+	}
+
+	.legend-suspended .legend-val {
+		color: #ffbe76;
 	}
 
 	@media (max-width: 768px) {
