@@ -402,6 +402,12 @@
 				connectedHosts.add(fed.targetHost);
 			}
 		}
+		// 視点サーバーは必ず表示（連合情報を公開していなくても他サーバーとの関係で表示）
+		for (const host of viewpointServers) {
+			if (serverHosts.has(host)) {
+				connectedHosts.add(host);
+			}
+		}
 
 		// サーバー情報のマップを作成
 		const serverMap = new Map(servers.map((s) => [s.host, s]));
