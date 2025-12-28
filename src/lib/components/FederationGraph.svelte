@@ -26,6 +26,15 @@
 
 	let container: HTMLDivElement;
 	let cy: import('cytoscape').Core | null = null;
+
+	// ツールチップ状態
+	let tooltip = $state<{ visible: boolean; x: number; y: number; label: string; host: string }>({
+		visible: false,
+		x: 0,
+		y: 0,
+		label: '',
+		host: ''
+	});
 	let isDestroying = false;
 	let isInitialized = false;
 	let focusHighlightTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -432,6 +441,10 @@
 						'text-outline-width': 2,
 						'text-valign': 'bottom',
 						'text-margin-y': 5,
+						'text-background-color': 'rgba(0, 0, 0, 0.7)',
+						'text-background-opacity': 1,
+						'text-background-padding': '4px',
+						'text-background-shape': 'roundrectangle',
 						'border-width': 'data(borderWidth)',
 						'border-color': 'data(color)',
 						// 宇宙空間の星のようなグロー効果
@@ -528,7 +541,7 @@
 			node.style({
 				'border-width': 4,
 				'border-color': '#fff',
-				'overlay-opacity': 0.15 // グロー効果
+				'overlay-opacity': 0.15
 			});
 			// 接続エッジをハイライト
 			node.connectedEdges().style({
@@ -635,17 +648,29 @@
 			}
 		});
 
-		// デスクトップ: マウスホバーでもハイライト表示
+		// デスクトップ: マウスホバーでもハイライト表示 + ツールチップ
 		cy.on('mouseover', 'node', (evt) => {
-			if (!selectedNode || selectedNode.id() !== evt.target.id()) {
-				highlightNode(evt.target);
+			const node = evt.target;
+			if (!selectedNode || selectedNode.id() !== node.id()) {
+				highlightNode(node);
 			}
+			// ツールチップ表示
+			const renderedPos = node.renderedPosition();
+			tooltip = {
+				visible: true,
+				x: renderedPos.x,
+				y: renderedPos.y - node.renderedHeight() / 2 - 8,
+				label: node.data('label'),
+				host: node.id()
+			};
 		});
 
 		cy.on('mouseout', 'node', (evt) => {
 			if (!selectedNode || selectedNode.id() !== evt.target.id()) {
 				unhighlightNode(evt.target);
 			}
+			// ツールチップ非表示
+			tooltip.visible = false;
 		});
 
 		// ドラッグは無効化（連合関係の距離感を維持）
@@ -715,6 +740,17 @@
 </script>
 
 <div class="graph-wrapper">
+	<!-- ツールチップ -->
+	{#if tooltip.visible}
+		<div
+			class="node-tooltip"
+			style="left: {tooltip.x}px; top: {tooltip.y}px;"
+		>
+			<span class="tooltip-label">{tooltip.label}</span>
+			<span class="tooltip-host">{tooltip.host}</span>
+		</div>
+	{/if}
+
 	<!-- 宇宙空間の星（パララックス効果付き） -->
 	<div class="stars-layer" bind:this={starsLayer} aria-hidden="true">
 		{#each { length: 50 } as _, i}
@@ -783,6 +819,47 @@
 			radial-gradient(ellipse at 70% 60%, rgba(160, 100, 180, 0.03) 0%, transparent 50%),
 			radial-gradient(ellipse at center, rgba(134, 179, 0, 0.05) 0%, transparent 60%);
 		overflow: hidden;
+	}
+
+	/* ノードツールチップ */
+	.node-tooltip {
+		position: absolute;
+		transform: translate(-50%, -100%);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.125rem;
+		padding: 0.375rem 0.625rem;
+		background: rgba(0, 0, 0, 0.85);
+		backdrop-filter: blur(8px);
+		border: 1px solid rgba(255, 255, 255, 0.15);
+		border-radius: var(--radius-md);
+		pointer-events: none;
+		z-index: 100;
+		white-space: nowrap;
+		animation: tooltip-fade-in 0.15s ease-out;
+	}
+
+	@keyframes tooltip-fade-in {
+		from {
+			opacity: 0;
+			transform: translate(-50%, -90%);
+		}
+		to {
+			opacity: 1;
+			transform: translate(-50%, -100%);
+		}
+	}
+
+	.tooltip-label {
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: var(--fg-primary);
+	}
+
+	.tooltip-host {
+		font-size: 0.65rem;
+		color: var(--fg-muted);
 	}
 
 	/* 星のレイヤー */
