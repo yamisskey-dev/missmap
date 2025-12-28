@@ -297,16 +297,16 @@
 			/>
 			<FilterPanel bind:filter {isMobile} defaultOpen={false} />
 			<div class="mobile-stats-row">
-				<ActiveFederationsPanel
-					federations={displayFederations()}
-					viewpointServers={settings.viewpointServers}
-					onFocusServer={handleFocusViewpoint}
-				/>
 				<FederatedSoftwarePanel
 					servers={displayServers()}
 					federations={displayFederations()}
 					viewpointServers={settings.viewpointServers}
 					bind:selectedRepositoryUrls={filter.repositoryUrls}
+				/>
+				<ActiveFederationsPanel
+					federations={displayFederations()}
+					viewpointServers={settings.viewpointServers}
+					onFocusServer={handleFocusViewpoint}
 				/>
 			</div>
 		</div>
@@ -322,16 +322,16 @@
 					onFocusServer={handleFocusViewpoint}
 				/>
 				<FilterPanel bind:filter />
-				<ActiveFederationsPanel
-					federations={displayFederations()}
-					viewpointServers={settings.viewpointServers}
-					onFocusServer={handleFocusViewpoint}
-				/>
 				<FederatedSoftwarePanel
 					servers={displayServers()}
 					federations={displayFederations()}
 					viewpointServers={settings.viewpointServers}
 					bind:selectedRepositoryUrls={filter.repositoryUrls}
+				/>
+				<ActiveFederationsPanel
+					federations={displayFederations()}
+					viewpointServers={settings.viewpointServers}
+					onFocusServer={handleFocusViewpoint}
 				/>
 			</aside>
 		{/if}
@@ -613,7 +613,7 @@
 		background: transparent;
 	}
 
-	.mobile-stats-row :global(.active-federations-panel) {
+	.mobile-stats-row :global(.federated-software-panel) {
 		border-right: 1px solid var(--border-color);
 	}
 
