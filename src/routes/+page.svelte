@@ -75,8 +75,13 @@
 		return null;
 	}
 
+	// URLクエリパラメータからフォーカスホストを読み込む
+	function parseFocusFromQuery(params: URLSearchParams): string | null {
+		return params.get('focus');
+	}
+
 	// フィルター状態をURLクエリパラメータに変換
-	function filterToQuery(filter: ServerFilter, viewpointServers: string[], defaultViewpoints: string[]): URLSearchParams {
+	function filterToQuery(filter: ServerFilter, viewpointServers: string[], defaultViewpoints: string[], focus: string | null): URLSearchParams {
 		const params = new URLSearchParams();
 
 		// 登録状態
@@ -113,13 +118,18 @@
 			params.set('vp', viewpointServers.join(','));
 		}
 
+		// フォーカスホスト
+		if (focus) {
+			params.set('focus', focus);
+		}
+
 		return params;
 	}
 
 	// URLを更新（履歴にプッシュせずに置換）
-	function updateUrl(filter: ServerFilter, viewpointServers: string[], defaultViewpoints: string[]) {
+	function updateUrl(filter: ServerFilter, viewpointServers: string[], defaultViewpoints: string[], focus: string | null = null) {
 		if (!browser) return;
-		const params = filterToQuery(filter, viewpointServers, defaultViewpoints);
+		const params = filterToQuery(filter, viewpointServers, defaultViewpoints, focus);
 		const queryString = params.toString();
 		const newUrl = queryString ? `?${queryString}` : window.location.pathname;
 		// 現在のURLと同じなら更新しない
@@ -184,10 +194,16 @@
 			const urlParams = new URLSearchParams(window.location.search);
 			const queryFilter = parseFilterFromQuery(urlParams);
 			const queryViewpoints = parseViewpointsFromQuery(urlParams);
+			const queryFocus = parseFocusFromQuery(urlParams);
 
 			// URLクエリからフィルターを適用
 			if (Object.keys(queryFilter).length > 0) {
 				filter = { ...DEFAULT_FILTER, ...queryFilter };
+			}
+
+			// URLクエリからフォーカスホストを適用
+			if (queryFocus) {
+				focusHost = queryFocus;
 			}
 
 			// URLクエリから視点サーバーを適用（ある場合のみ）
@@ -262,13 +278,14 @@
 		}
 	});
 
-	// フィルターと視点サーバーの変更時にURLを更新
+	// フィルター、視点サーバー、フォーカスホストの変更時にURLを更新
 	$effect(() => {
-		// filter と settings.viewpointServers への依存関係を作成
+		// filter, settings.viewpointServers, focusHost への依存関係を作成
 		const filterStr = JSON.stringify(filter);
 		const vpStr = JSON.stringify(settings.viewpointServers);
+		const currentFocus = focusHost;
 		if (browser && initialized) {
-			updateUrl(filter, settings.viewpointServers, defaultViewpoints());
+			updateUrl(filter, settings.viewpointServers, defaultViewpoints(), currentFocus || null);
 		}
 	});
 
