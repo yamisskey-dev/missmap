@@ -287,36 +287,80 @@
 		</svg>
 	</a>
 
-	<!-- モバイル: パネルを上部に配置 -->
+	<!-- モバイル: スクロールコンテナ -->
 	{#if isMobile}
-		<div class="mobile-panels">
-			<SettingsPanel bind:settings onAddViewpoint={handleAddViewpoint} onFocusViewpoint={handleFocusViewpoint} ssrViewpoints={ssrViewpoints()} defaultViewpoints={defaultViewpoints()} {isMobile} defaultOpen={false} />
-			<SearchPanel
-				servers={filteredServers()}
-				onFocusServer={handleFocusViewpoint}
-				{isMobile}
-				defaultOpen={false}
-			/>
-			<FilterPanel bind:filter {isMobile} defaultOpen={false} />
-			<FederatedSoftwarePanel
-				servers={displayServers()}
-				federations={displayFederations()}
-				viewpointServers={settings.viewpointServers}
-				bind:selectedRepositoryUrls={filter.repositoryUrls}
-				{isMobile}
-				defaultOpen={false}
-			/>
-			<ActiveFederationsPanel
-				federations={displayFederations()}
-				viewpointServers={settings.viewpointServers}
-				onFocusServer={handleFocusViewpoint}
-				{isMobile}
-				defaultOpen={false}
-			/>
+		<div class="mobile-scroll-container">
+			<div class="mobile-panels">
+				<SettingsPanel bind:settings onAddViewpoint={handleAddViewpoint} onFocusViewpoint={handleFocusViewpoint} ssrViewpoints={ssrViewpoints()} defaultViewpoints={defaultViewpoints()} {isMobile} defaultOpen={false} />
+				<SearchPanel
+					servers={filteredServers()}
+					onFocusServer={handleFocusViewpoint}
+					{isMobile}
+					defaultOpen={false}
+				/>
+				<FilterPanel bind:filter {isMobile} defaultOpen={false} />
+				<FederatedSoftwarePanel
+					servers={displayServers()}
+					federations={displayFederations()}
+					viewpointServers={settings.viewpointServers}
+					bind:selectedRepositoryUrls={filter.repositoryUrls}
+					{isMobile}
+					defaultOpen={false}
+				/>
+				<ActiveFederationsPanel
+					federations={displayFederations()}
+					viewpointServers={settings.viewpointServers}
+					onFocusServer={handleFocusViewpoint}
+					{isMobile}
+					defaultOpen={false}
+				/>
+			</div>
+			<!-- モバイル: グラフ -->
+			<div class="mobile-graph">
+				{#if federationError}
+					<div class="error-banner">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="error-icon">
+							<circle cx="12" cy="12" r="10" />
+							<line x1="12" y1="8" x2="12" y2="12" />
+							<line x1="12" y1="16" x2="12.01" y2="16" />
+						</svg>
+						<span>{federationError}</span>
+					</div>
+				{/if}
+				{#if isLoading}
+					<div class="graph-placeholder loading">
+						<div class="spinner"></div>
+						<span class="loading-text">連合情報を取得中...</span>
+					</div>
+				{:else if filteredServers().length > 0}
+					<div class="graph-container">
+						<FederationGraph
+							servers={filteredServers()}
+							federations={displayFederations()}
+							focusHost={focusHost}
+							viewpointServers={settings.viewpointServers}
+							onSelectServer={handleSelectServer}
+						/>
+					</div>
+				{:else}
+					<div class="graph-placeholder empty">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon">
+							<circle cx="12" cy="12" r="10" />
+							<path d="M8 15s1.5-2 4-2 4 2 4 2" />
+							<line x1="9" y1="9" x2="9.01" y2="9" />
+							<line x1="15" y1="9" x2="15.01" y2="9" />
+						</svg>
+						<span>条件に一致するサーバーがありません</span>
+						<button class="reset-btn" onclick={() => filter = { ...DEFAULT_FILTER }}>
+							フィルターをリセット
+						</button>
+					</div>
+				{/if}
+			</div>
 		</div>
 	{/if}
 
-	<div class="layout">
+	<div class="layout" class:hidden-mobile={isMobile}>
 		<!-- デスクトップ: サイドバー -->
 		{#if !isMobile}
 			<aside class="sidebar">
@@ -573,6 +617,13 @@
 		}
 	}
 
+	/* モバイル スクロールコンテナ */
+	.mobile-scroll-container {
+		height: 100vh;
+		overflow-y: auto;
+		overflow-x: hidden;
+	}
+
 	/* Mobile panels - ヘッダー下に配置 */
 	.mobile-panels {
 		display: flex;
@@ -580,6 +631,25 @@
 		gap: 0;
 		padding: 0 1rem;
 		background: var(--bg-primary);
+	}
+
+	/* モバイル グラフ */
+	.mobile-graph {
+		height: 70vh;
+		padding: 0.25rem;
+	}
+
+	.mobile-graph .graph-container {
+		height: 100%;
+	}
+
+	.mobile-graph .graph-placeholder {
+		height: 100%;
+	}
+
+	/* デスクトップでは hidden-mobile を非表示にしない */
+	.layout.hidden-mobile {
+		display: none;
 	}
 
 	.mobile-panels :global(.settings-panel),
@@ -610,10 +680,42 @@
 		border-bottom: none;
 	}
 
+	/* モバイルでパネルヘッダーをスティッキーに積み上げ */
+	.mobile-panels :global(.panel-header-toggle) {
+		position: sticky;
+		z-index: 10;
+		background: var(--bg-card);
+		padding: 0.5rem 0;
+		margin: 0 0 0.375rem;
+		border-bottom: 1px solid var(--border-color);
+	}
+
+	/* 各パネルのヘッダーを順番に積み上げ（ヘッダー高さ約32px） */
+	.mobile-panels :global(.settings-panel .panel-header-toggle) {
+		top: 0;
+		z-index: 15;
+	}
+	.mobile-panels :global(.search-panel .panel-header-toggle) {
+		top: 32px;
+		z-index: 14;
+	}
+	.mobile-panels :global(.filter-panel .panel-header-toggle) {
+		top: 64px;
+		z-index: 13;
+	}
+	.mobile-panels :global(.federated-software-panel .panel-header-toggle) {
+		top: 96px;
+		z-index: 12;
+	}
+	.mobile-panels :global(.active-federations-panel .panel-header-toggle) {
+		top: 128px;
+		z-index: 11;
+	}
+
 	@media (max-width: 768px) {
 		.page {
-			min-height: 100vh;
-			overflow-y: auto;
+			height: 100vh;
+			overflow: hidden;
 		}
 
 		.layout {
