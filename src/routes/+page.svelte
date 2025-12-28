@@ -7,6 +7,7 @@
 	import ServerInfoPopup from '$lib/components/ServerInfoPopup.svelte';
 	import Legend from '$lib/components/Legend.svelte';
 	import StatsPanel from '$lib/components/StatsPanel.svelte';
+	import SearchPanel from '$lib/components/SearchPanel.svelte';
 	import {
 		DEFAULT_FILTER,
 		DEFAULT_SETTINGS,
@@ -322,6 +323,10 @@
 				<SettingsPanel bind:settings onAddViewpoint={handleAddViewpoint} onFocusViewpoint={handleFocusViewpoint} ssrViewpoints={ssrViewpoints()} defaultViewpoints={defaultViewpoints()} />
 				<FilterPanel bind:filter availableRepositories={availableRepositories()} />
 				<Legend />
+				<SearchPanel
+					servers={filteredServers()}
+					onFocusServer={handleFocusViewpoint}
+				/>
 				<StatsPanel
 					totalServers={displayServers().length}
 					filteredServers={filteredServers().length}
@@ -409,6 +414,7 @@
 	.sidebar :global(.filter-panel),
 	.sidebar :global(.settings-panel),
 	.sidebar :global(.legend-panel),
+	.sidebar :global(.search-panel),
 	.sidebar :global(.stats-panel) {
 		background: var(--bg-card);
 		backdrop-filter: blur(12px);
@@ -422,6 +428,7 @@
 	.sidebar :global(.filter-panel:hover),
 	.sidebar :global(.settings-panel:hover),
 	.sidebar :global(.legend-panel:hover),
+	.sidebar :global(.search-panel:hover),
 	.sidebar :global(.stats-panel:hover) {
 		border-color: var(--border-color-hover);
 		box-shadow: var(--shadow-md);
@@ -649,9 +656,8 @@
 			min-height: 50vh;
 		}
 
-		.github-corner svg {
-			width: 60px;
-			height: 60px;
+		.github-corner {
+			display: none;
 		}
 	}
 
