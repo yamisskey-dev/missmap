@@ -127,9 +127,11 @@ interface FederationInfo {
 	targetHost: string;
 	usersCount: number;
 	notesCount: number;
+	isBlocked: boolean;
+	isSuspended: boolean;
 }
 
-// 主要サーバーから連合情報を取得
+// 主要サーバーから連合情報を取得（ブロック/サスペンド情報も含む）
 async function fetchFederations(seedHost: string, knownHosts: Set<string>): Promise<FederationInfo[]> {
 	try {
 		const res = await fetch(`https://${seedHost}/api/federation/instances`, {
@@ -148,13 +150,50 @@ async function fetchFederations(seedHost: string, knownHosts: Set<string>): Prom
 			isSuspended?: boolean;
 		}>;
 
+		// 正常な連合関係のみ返す（ブロック/サスペンドは除外）
 		return instances
 			.filter((inst) => !inst.isBlocked && !inst.isSuspended && knownHosts.has(inst.host))
 			.map((inst) => ({
 				sourceHost: seedHost,
 				targetHost: inst.host,
 				usersCount: inst.usersCount ?? 0,
-				notesCount: inst.notesCount ?? 0
+				notesCount: inst.notesCount ?? 0,
+				isBlocked: false,
+				isSuspended: false
+			}));
+	} catch {
+		return [];
+	}
+}
+
+// ブロック/サスペンド関係を取得
+async function fetchBlockedRelations(seedHost: string, knownHosts: Set<string>): Promise<FederationInfo[]> {
+	try {
+		const res = await fetch(`https://${seedHost}/api/federation/instances`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ limit: 30, blocked: true })
+		});
+
+		if (!res.ok) return [];
+
+		const instances = (await res.json()) as Array<{
+			host: string;
+			usersCount?: number;
+			notesCount?: number;
+			isBlocked?: boolean;
+			isSuspended?: boolean;
+		}>;
+
+		return instances
+			.filter((inst) => knownHosts.has(inst.host))
+			.map((inst) => ({
+				sourceHost: seedHost,
+				targetHost: inst.host,
+				usersCount: inst.usersCount ?? 0,
+				notesCount: inst.notesCount ?? 0,
+				isBlocked: inst.isBlocked ?? false,
+				isSuspended: inst.isSuspended ?? false
 			}));
 	} catch {
 		return [];
@@ -185,9 +224,12 @@ export const load: PageServerLoad = async ({ fetch }) => {
 			.sort((a, b) => (b.usersCount ?? 0) - (a.usersCount ?? 0))
 			.slice(0, 5);
 
-		const federationsPromises = largeServers.map((s) => fetchFederations(s.host, knownHosts));
-		const federationsArrays = await Promise.all(federationsPromises);
-		const federations = federationsArrays.flat();
+		// 正常な連合関係とブロック関係を並列で取得
+		const [federationsArrays, blockedArrays] = await Promise.all([
+			Promise.all(largeServers.map((s) => fetchFederations(s.host, knownHosts))),
+			Promise.all(largeServers.map((s) => fetchBlockedRelations(s.host, knownHosts)))
+		]);
+		const federations = [...federationsArrays.flat(), ...blockedArrays.flat()];
 
 		// デフォルトの視点サーバーリストを返す
 		const defaultViewpoints = largeServers.map(s => s.host);

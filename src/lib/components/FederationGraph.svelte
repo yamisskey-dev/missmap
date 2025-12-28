@@ -15,6 +15,8 @@
 		targetHost: string;
 		usersCount: number;
 		notesCount: number;
+		isBlocked: boolean;
+		isSuspended: boolean;
 	}
 
 	let {
@@ -275,9 +277,13 @@
 			viewpointHosts.add(fed.sourceHost);
 		}
 
-		// まず全エッジの活動量を収集して最大値・最小値を取得
+		// 正常な連合とブロック関係を分離
+		const normalFederations = federations.filter(f => !f.isBlocked && !f.isSuspended);
+		const blockedFederations = federations.filter(f => f.isBlocked || f.isSuspended);
+
+		// まず全エッジの活動量を収集して最大値・最小値を取得（正常な連合のみ）
 		const rawActivities: { source: string; target: string; activity: number }[] = [];
-		for (const fed of federations) {
+		for (const fed of normalFederations) {
 			// エッジの両端がいずれかの条件を満たす場合のみ表示:
 			// 1. MisskeyHubのサーバーリストに含まれている
 			// 2. 視点サーバーである（MisskeyHubに載っていなくても表示）
@@ -347,16 +353,52 @@
 					target: e.target,
 					weight: e.weight,
 					color: edgeColor,
-					opacity
+					opacity,
+					isBlocked: false,
+					isSuspended: false
 				}
 			};
 		});
+
+		// ブロック/サスペンド関係のエッジを追加
+		const blockedEdges: Array<{ data: Record<string, unknown> }> = [];
+		for (const fed of blockedFederations) {
+			const sourceAllowed = serverHosts.has(fed.sourceHost) || viewpointHosts.has(fed.sourceHost);
+			const targetAllowed = serverHosts.has(fed.targetHost) || viewpointHosts.has(fed.targetHost);
+			if (!sourceAllowed || !targetAllowed) continue;
+
+			// ブロック関係は方向性があるのでソートしない（sourceがtargetをブロック）
+			blockedEdges.push({
+				data: {
+					id: `blocked-${fed.sourceHost}-${fed.targetHost}`,
+					source: fed.sourceHost,
+					target: fed.targetHost,
+					weight: 3,
+					color: fed.isSuspended ? '#ff6b6b' : '#ff4757', // サスペンドは少し薄い赤
+					opacity: 0.8,
+					isBlocked: fed.isBlocked,
+					isSuspended: fed.isSuspended
+				}
+			});
+		}
+
+		// 全エッジを結合
+		const allEdges = [...edges, ...blockedEdges];
 
 		// 連合関係があるサーバーのみをノードとして表示
 		const connectedHosts = new Set<string>();
 		for (const edge of edgeMap.values()) {
 			connectedHosts.add(edge.source);
 			connectedHosts.add(edge.target);
+		}
+		// ブロック関係のホストも追加
+		for (const fed of blockedFederations) {
+			if (serverHosts.has(fed.sourceHost) || viewpointHosts.has(fed.sourceHost)) {
+				connectedHosts.add(fed.sourceHost);
+			}
+			if (serverHosts.has(fed.targetHost) || viewpointHosts.has(fed.targetHost)) {
+				connectedHosts.add(fed.targetHost);
+			}
 		}
 
 		// サーバー情報のマップを作成
@@ -435,7 +477,7 @@
 
 		cy = cytoscape({
 			container,
-			elements: [...nodes, ...edges],
+			elements: [...nodes, ...allEdges],
 			style: [
 				{
 					selector: 'node',
@@ -503,6 +545,17 @@
 						opacity: 'data(opacity)' as unknown as number,
 						'transition-property': 'line-color, opacity',
 						'transition-duration': 200
+					}
+				},
+				{
+					selector: 'edge[?isBlocked], edge[?isSuspended]',
+					style: {
+						'line-style': 'dashed',
+						'line-dash-pattern': [6, 3],
+						'target-arrow-shape': 'triangle',
+						'target-arrow-color': 'data(color)',
+						'arrow-scale': 1.2,
+						'curve-style': 'bezier'
 					}
 				},
 				{
@@ -813,6 +866,7 @@
 		<div class="legend-item"><span class="legend-key">大きさ</span><span class="legend-val">ユーザー数</span></div>
 		<div class="legend-item"><span class="legend-key">線の太さ</span><span class="legend-val">やり取り量</span></div>
 		<div class="legend-item"><span class="legend-key">中心</span><span class="legend-val">繋がり多</span></div>
+		<div class="legend-item legend-blocked"><span class="legend-key">赤破線</span><span class="legend-val">ブロック</span></div>
 	</div>
 </div>
 
@@ -979,6 +1033,14 @@
 
 	.legend-val {
 		color: var(--fg-secondary);
+	}
+
+	.legend-blocked .legend-key {
+		color: #ff4757;
+	}
+
+	.legend-blocked .legend-val {
+		color: #ff6b6b;
 	}
 
 	@media (max-width: 768px) {
