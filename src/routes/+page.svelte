@@ -8,6 +8,7 @@
 	import StatsPanel from '$lib/components/StatsPanel.svelte';
 	import SearchPanel from '$lib/components/SearchPanel.svelte';
 	import ActiveFederationsPanel from '$lib/components/ActiveFederationsPanel.svelte';
+	import FederatedSoftwarePanel from '$lib/components/FederatedSoftwarePanel.svelte';
 	import {
 		DEFAULT_FILTER,
 		DEFAULT_SETTINGS,
@@ -206,16 +207,6 @@
 		return data.servers as ServerInfo[];
 	});
 
-	// 利用可能なリポジトリURLを抽出
-	let availableRepositories = $derived(() => {
-		const repos = new Set<string>();
-		for (const server of displayServers()) {
-			if (server.repositoryUrl) {
-				repos.add(server.repositoryUrl);
-			}
-		}
-		return Array.from(repos).sort();
-	});
 
 	// サーバーの登録状態を判定
 	function getRegistrationStatus(server: ServerInfo): 'open' | 'approval' | 'invite' | 'closed' {
@@ -315,7 +306,7 @@
 				servers={filteredServers()}
 				onFocusServer={handleFocusViewpoint}
 			/>
-			<FilterPanel bind:filter availableRepositories={availableRepositories()} {isMobile} defaultOpen={false} />
+			<FilterPanel bind:filter {isMobile} defaultOpen={false} />
 			<div class="mobile-stats-row">
 				<StatsPanel
 					totalServers={displayServers().length}
@@ -328,6 +319,12 @@
 					federations={displayFederations()}
 					viewpointServers={settings.viewpointServers}
 					onFocusServer={handleFocusViewpoint}
+				/>
+				<FederatedSoftwarePanel
+					servers={displayServers()}
+					federations={displayFederations()}
+					viewpointServers={settings.viewpointServers}
+					bind:selectedRepositoryUrls={filter.repositoryUrls}
 				/>
 			</div>
 		</div>
@@ -342,7 +339,7 @@
 					servers={filteredServers()}
 					onFocusServer={handleFocusViewpoint}
 				/>
-				<FilterPanel bind:filter availableRepositories={availableRepositories()} />
+				<FilterPanel bind:filter />
 				<StatsPanel
 					totalServers={displayServers().length}
 					filteredServers={filteredServers().length}
@@ -354,6 +351,12 @@
 					federations={displayFederations()}
 					viewpointServers={settings.viewpointServers}
 					onFocusServer={handleFocusViewpoint}
+				/>
+				<FederatedSoftwarePanel
+					servers={displayServers()}
+					federations={displayFederations()}
+					viewpointServers={settings.viewpointServers}
+					bind:selectedRepositoryUrls={filter.repositoryUrls}
 				/>
 			</aside>
 		{/if}
@@ -436,7 +439,8 @@
 	.sidebar :global(.settings-panel),
 	.sidebar :global(.search-panel),
 	.sidebar :global(.stats-panel),
-	.sidebar :global(.active-federations-panel) {
+	.sidebar :global(.active-federations-panel),
+	.sidebar :global(.federated-software-panel) {
 		background: var(--bg-card);
 		backdrop-filter: blur(12px);
 		-webkit-backdrop-filter: blur(12px);
@@ -450,7 +454,8 @@
 	.sidebar :global(.settings-panel:hover),
 	.sidebar :global(.search-panel:hover),
 	.sidebar :global(.stats-panel:hover),
-	.sidebar :global(.active-federations-panel:hover) {
+	.sidebar :global(.active-federations-panel:hover),
+	.sidebar :global(.federated-software-panel:hover) {
 		border-color: var(--border-color-hover);
 		box-shadow: var(--shadow-md);
 	}
@@ -628,14 +633,16 @@
 	}
 
 	.mobile-stats-row :global(.stats-panel),
-	.mobile-stats-row :global(.active-federations-panel) {
+	.mobile-stats-row :global(.active-federations-panel),
+	.mobile-stats-row :global(.federated-software-panel) {
 		flex: 1;
 		border: none;
 		border-radius: 0;
 		background: transparent;
 	}
 
-	.mobile-stats-row :global(.stats-panel) {
+	.mobile-stats-row :global(.stats-panel),
+	.mobile-stats-row :global(.active-federations-panel) {
 		border-right: 1px solid var(--border-color);
 	}
 

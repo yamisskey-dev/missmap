@@ -1,21 +1,17 @@
 <script lang="ts">
 	import { DEFAULT_FILTER, type ServerFilter, type ServerScale, type RegistrationStatus, type EmailRequirement, type AgeRestriction } from '$lib/types';
-	import { getRepositoryDisplayName, getRepositoryColor } from '$lib/collector';
 
 	let {
 		filter = $bindable(DEFAULT_FILTER),
-		availableRepositories = [],
 		isMobile = false,
 		defaultOpen = true
 	}: {
 		filter: ServerFilter;
-		availableRepositories: string[];
 		isMobile?: boolean;
 		defaultOpen?: boolean;
 	} = $props();
 
 	let isExpanded = $state(defaultOpen);
-	let softwareExpanded = $state(false);
 
 	const scaleOptions: { value: ServerScale; label: string }[] = [
 		{ value: 'large', label: '大規模 (1000人以上)' },
@@ -57,9 +53,6 @@
 			filter.registrationStatus = [...filter.registrationStatus, value];
 		}
 	}
-
-	// 選択中のソフトウェア数
-	let selectedCount = $derived(filter.repositoryUrls.length);
 </script>
 
 <aside class="filter-panel">
@@ -126,41 +119,6 @@
 				</button>
 			{/each}
 		</div>
-	</section>
-
-	<section class="accordion-section">
-		<button class="accordion-header" onclick={() => softwareExpanded = !softwareExpanded}>
-			<h4>ソフトウェア</h4>
-			{#if selectedCount > 0}
-				<span class="selected-badge">{selectedCount}</span>
-			{/if}
-			<svg class="accordion-icon" class:expanded={softwareExpanded} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<polyline points="6 9 12 15 18 9" />
-			</svg>
-		</button>
-		{#if softwareExpanded}
-			<div class="accordion-content">
-				<div class="software-chips">
-					{#each availableRepositories as url}
-						<button
-							class="software-chip"
-							class:selected={filter.repositoryUrls.includes(url)}
-							style="--chip-color: {getRepositoryColor(url)}"
-							onclick={() => {
-								if (filter.repositoryUrls.includes(url)) {
-									filter.repositoryUrls = filter.repositoryUrls.filter(u => u !== url);
-								} else {
-									filter.repositoryUrls = [...filter.repositoryUrls, url];
-								}
-							}}
-						>
-							<span class="chip-dot"></span>
-							{getRepositoryDisplayName(url)}
-						</button>
-					{/each}
-				</div>
-			</div>
-		{/if}
 	</section>
 
 	<section>
@@ -251,77 +209,6 @@
 		margin-top: 0;
 	}
 
-	/* Accordion styles */
-	.accordion-section {
-		margin-top: 0.375rem;
-	}
-
-	.accordion-header {
-		display: flex;
-		align-items: center;
-		width: 100%;
-		padding: 0.25rem 0.375rem;
-		margin: 0 -0.375rem;
-		background: transparent;
-		border: none;
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-		transition: background var(--transition-fast);
-	}
-
-	.accordion-header:hover {
-		background: rgba(255, 255, 255, 0.05);
-	}
-
-	.accordion-header h4 {
-		margin: 0;
-		flex: 1;
-		text-align: left;
-	}
-
-	.selected-badge {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 20px;
-		height: 20px;
-		padding: 0 6px;
-		margin-right: 0.5rem;
-		background: var(--accent-600);
-		border-radius: 10px;
-		font-size: 0.7rem;
-		font-weight: 700;
-		color: white;
-	}
-
-	.accordion-icon {
-		width: 16px;
-		height: 16px;
-		color: var(--fg-muted);
-		transition: transform var(--transition-fast);
-		flex-shrink: 0;
-	}
-
-	.accordion-icon.expanded {
-		transform: rotate(180deg);
-	}
-
-	.accordion-content {
-		padding-top: 0.5rem;
-		animation: slideDown 0.2s ease-out;
-	}
-
-	@keyframes slideDown {
-		from {
-			opacity: 0;
-			transform: translateY(-8px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-
 	/* Chip group styles */
 	.chip-group {
 		display: flex;
@@ -349,46 +236,6 @@
 		background: rgba(134, 179, 0, 0.15);
 		border-color: var(--accent-600);
 		color: var(--accent-400);
-	}
-
-	/* Software chips */
-	.software-chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.375rem;
-	}
-
-	.software-chip {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		padding: 0.375rem 0.625rem;
-		background: rgba(255, 255, 255, 0.05);
-		border: 1px solid var(--border-color);
-		border-radius: 20px;
-		font-size: 0.75rem;
-		color: var(--fg-secondary);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.software-chip:hover {
-		background: rgba(255, 255, 255, 0.1);
-		border-color: var(--border-color-hover);
-	}
-
-	.software-chip.selected {
-		background: color-mix(in srgb, var(--chip-color) 20%, transparent);
-		border-color: var(--chip-color);
-		color: var(--fg-primary);
-	}
-
-	.chip-dot {
-		width: 8px;
-		height: 8px;
-		background: var(--chip-color);
-		border-radius: 50%;
-		flex-shrink: 0;
 	}
 
 	/* Scale buttons */
