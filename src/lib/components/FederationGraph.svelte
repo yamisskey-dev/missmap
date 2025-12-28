@@ -1413,12 +1413,12 @@
 		flex: 1;
 		min-height: 0;
 		height: 100%;
-		/* 宇宙空間の背景 - 常にダークテーマ */
+		/* 宇宙空間の背景 - DXMテーマ準拠 */
 		background:
-			radial-gradient(ellipse at 30% 40%, rgba(100, 140, 200, 0.04) 0%, transparent 50%),
-			radial-gradient(ellipse at 70% 60%, rgba(160, 100, 180, 0.03) 0%, transparent 50%),
-			radial-gradient(ellipse at center, rgba(134, 179, 0, 0.05) 0%, transparent 60%),
-			#1a1a1a;
+			radial-gradient(ellipse at 30% 40%, rgba(163, 116, 255, 0.06) 0%, transparent 50%),
+			radial-gradient(ellipse at 70% 60%, rgba(214, 85, 214, 0.04) 0%, transparent 50%),
+			radial-gradient(ellipse at center, rgba(163, 116, 255, 0.08) 0%, transparent 60%),
+			rgba(19, 14, 38, 1);
 		overflow: hidden;
 		cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><text y='24' font-size='24'>🚀</text></svg>") 4 4, auto;
 	}
