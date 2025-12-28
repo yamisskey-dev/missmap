@@ -34,7 +34,8 @@
 	}
 
 	function handleFocus(host: string) {
-		settings.seedServer = host;
+		// 同じサーバーをクリックしたら選択解除、違うサーバーなら選択
+		settings.seedServer = settings.seedServer === host ? '' : host;
 	}
 
 	function handleKeydown(e: KeyboardEvent) {

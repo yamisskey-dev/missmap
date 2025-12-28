@@ -15,12 +15,14 @@
 		federations,
 		seedServer = '',
 		viewpointServers = [],
+		viewMode = 'merged',
 		onSelectServer
 	}: {
 		servers: ServerInfo[];
 		federations: Federation[];
 		seedServer?: string;
 		viewpointServers?: string[];
+		viewMode?: 'merged' | 'single';
 		onSelectServer?: (server: ServerInfo | null, position: { x: number; y: number } | null) => void;
 	} = $props();
 
@@ -85,6 +87,16 @@
 		const seedChanged = seedServer !== prevSeedServer;
 
 		if ((serversChanged || federationsChanged || seedChanged) && container) {
+			const onlySeedChanged = seedChanged && !serversChanged && !federationsChanged;
+
+			// マージモードでseedServerのみ変更された場合は、ハイライト更新のみ
+			if (onlySeedChanged && viewMode === 'merged' && cy) {
+				const oldSeedServer = prevSeedServer;
+				prevSeedServer = seedServer;
+				updateSeedHighlight(oldSeedServer, seedServer);
+				return;
+			}
+
 			prevServersLength = servers.length;
 			prevFederationsLength = federations.length;
 			prevSeedServer = seedServer;
@@ -93,6 +105,61 @@
 			initGraph();
 		}
 	});
+
+	// seedServerのハイライトのみを更新（レイアウト再計算なし）
+	function updateSeedHighlight(oldSeed: string, newSeed: string) {
+		if (!cy) return;
+
+		// 古いseedServerのハイライトを解除
+		if (oldSeed) {
+			const oldNode = cy.getElementById(oldSeed);
+			if (oldNode.length > 0) {
+				oldNode.data('isSeed', false);
+				const isViewpoint = oldNode.data('isViewpoint');
+				const nodeColor = oldNode.data('color');
+				const borderWidth = oldNode.data('borderWidth');
+
+				if (isViewpoint) {
+					oldNode.style({
+						'border-width': 3,
+						'border-color': '#86b300',
+						'border-style': 'solid'
+					});
+				} else {
+					oldNode.style({
+						'border-width': borderWidth,
+						'border-color': nodeColor,
+						'border-style': 'solid'
+					});
+				}
+				// エッジのハイライトも解除
+				oldNode.connectedEdges().forEach((edge: { data: (key: string) => string | number; style: (styles: Record<string, unknown>) => void }) => {
+					edge.style({
+						'line-color': edge.data('color'),
+						opacity: edge.data('opacity')
+					});
+				});
+			}
+		}
+
+		// 新しいseedServerをハイライト（マウスオーバーと同じスタイル）
+		if (newSeed) {
+			const newNode = cy.getElementById(newSeed);
+			if (newNode.length > 0) {
+				newNode.data('isSeed', true);
+				newNode.style({
+					'border-width': 4,
+					'border-color': '#fff',
+					'border-style': 'solid'
+				});
+				// 接続エッジもハイライト
+				newNode.connectedEdges().style({
+					'line-color': 'rgba(255, 255, 255, 0.7)',
+					opacity: 1
+				});
+			}
+		}
+	}
 
 	async function initGraph() {
 		// コンテナが準備されていない場合は中断
@@ -334,7 +401,7 @@
 					style: {
 						'border-width': 4,
 						'border-color': '#fff',
-						'border-style': 'double'
+						'border-style': 'solid'
 					}
 				},
 				{
@@ -416,10 +483,16 @@
 			const borderWidth = node.data('borderWidth');
 
 			if (isSeed) {
+				// seedServerはマウスオーバーと同じハイライトを維持
 				node.style({
 					'border-width': 4,
 					'border-color': '#fff',
-					'border-style': 'double'
+					'border-style': 'solid'
+				});
+				// エッジもハイライトを維持
+				node.connectedEdges().style({
+					'line-color': 'rgba(255, 255, 255, 0.7)',
+					opacity: 1
 				});
 			} else if (isViewpoint) {
 				node.style({
@@ -427,20 +500,27 @@
 					'border-color': '#86b300',
 					'border-style': 'solid'
 				});
+				// エッジは元に戻す
+				node.connectedEdges().forEach((edge: { data: (key: string) => string | number; style: (styles: Record<string, unknown>) => void }) => {
+					edge.style({
+						'line-color': edge.data('color'),
+						opacity: edge.data('opacity')
+					});
+				});
 			} else {
 				node.style({
 					'border-width': borderWidth,
 					'border-color': nodeColor,
 					'border-style': 'solid'
 				});
-			}
-			// 元の色とopacityに戻す
-			node.connectedEdges().forEach((edge: { data: (key: string) => string | number; style: (styles: Record<string, unknown>) => void }) => {
-				edge.style({
-					'line-color': edge.data('color'),
-					opacity: edge.data('opacity')
+				// エッジは元に戻す
+				node.connectedEdges().forEach((edge: { data: (key: string) => string | number; style: (styles: Record<string, unknown>) => void }) => {
+					edge.style({
+						'line-color': edge.data('color'),
+						opacity: edge.data('opacity')
+					});
 				});
-			});
+			}
 		}
 
 		// サーバー情報のマップを作成（タップ時に使用）

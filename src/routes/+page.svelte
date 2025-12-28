@@ -358,6 +358,7 @@
 						federations={displayFederations()}
 						seedServer={settings.seedServer}
 						viewpointServers={settings.viewpointServers}
+						viewMode={settings.viewMode}
 						onSelectServer={handleSelectServer}
 					/>
 				</div>
