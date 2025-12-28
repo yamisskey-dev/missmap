@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(curl:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: ノードホバー時にツールチップ表示\n\n- ラベルは常時表示（黒背景付きで読みやすく）\n- ホバー時にサーバー名とホスト名のツールチップをポップアップ\n- フェードインアニメーション付き\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

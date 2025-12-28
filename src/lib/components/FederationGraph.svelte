@@ -50,13 +50,22 @@
 		// エッジ用
 		source?: string;
 		target?: string;
-		relation?: 'federation' | 'blocked' | 'suspended';
+		relation?: 'federation' | 'blocked' | 'suspended' | 'connectivity-ok' | 'connectivity-ng';
+		isMutual?: boolean;
+		connectivityError?: string;
 	}>({
 		visible: false,
 		x: 0,
 		y: 0,
 		type: 'node'
 	});
+
+	// 視点サーバー間の疎通状況
+	let connectivityResults = $state<Map<string, {
+		reachable: boolean;
+		error?: string;
+		latency?: number;
+	}>>(new Map());
 	let isDestroying = false;
 	let isInitialized = false;
 	let focusHighlightTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -133,6 +142,131 @@
 
 		// 次のフレーム
 		inertiaAnimationId = requestAnimationFrame(applyInertia);
+	}
+
+	// 視点サーバー間の疎通チェック
+	async function checkViewpointConnectivity() {
+		if (viewpointServers.length < 2) return;
+
+		// 視点サーバー間の全ペアをチェック
+		const pairs: { source: string; target: string }[] = [];
+		for (let i = 0; i < viewpointServers.length; i++) {
+			for (let j = i + 1; j < viewpointServers.length; j++) {
+				pairs.push({
+					source: viewpointServers[i],
+					target: viewpointServers[j]
+				});
+			}
+		}
+
+		// 並列で実行
+		const results = await Promise.all(
+			pairs.map(async ({ source, target }) => {
+				try {
+					const res = await fetch('/api/connectivity', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ source, target, bidirectional: true })
+					});
+
+					if (!res.ok) {
+						return {
+							source,
+							target,
+							forward: { reachable: false, error: 'API_ERROR' },
+							backward: { reachable: false, error: 'API_ERROR' }
+						};
+					}
+
+					const data = await res.json();
+					return { source, target, forward: data.forward, backward: data.backward };
+				} catch {
+					return {
+						source,
+						target,
+						forward: { reachable: false, error: 'FETCH_FAILED' },
+						backward: { reachable: false, error: 'FETCH_FAILED' }
+					};
+				}
+			})
+		);
+
+		// 結果をマップに格納
+		const newResults = new Map<string, { reachable: boolean; error?: string; latency?: number }>();
+		for (const result of results) {
+			newResults.set(`${result.source}->${result.target}`, {
+				reachable: result.forward.reachable,
+				error: result.forward.error,
+				latency: result.forward.latency
+			});
+			newResults.set(`${result.target}->${result.source}`, {
+				reachable: result.backward.reachable,
+				error: result.backward.error,
+				latency: result.backward.latency
+			});
+		}
+		connectivityResults = newResults;
+
+		// グラフに疎通エッジを追加
+		addConnectivityEdges();
+	}
+
+	// 疎通チェック結果をグラフに反映
+	function addConnectivityEdges() {
+		if (!cy || viewpointServers.length < 2) return;
+
+		// 既存の疎通エッジを削除
+		cy.elements('edge[?isConnectivity]').remove();
+
+		// 視点サーバー間の疎通エッジを追加
+		const connectivityEdges: Array<{ data: Record<string, unknown> }> = [];
+
+		for (let i = 0; i < viewpointServers.length; i++) {
+			for (let j = i + 1; j < viewpointServers.length; j++) {
+				const hostA = viewpointServers[i];
+				const hostB = viewpointServers[j];
+
+				const forwardResult = connectivityResults.get(`${hostA}->${hostB}`);
+				const backwardResult = connectivityResults.get(`${hostB}->${hostA}`);
+
+				if (!forwardResult && !backwardResult) continue;
+
+				const forwardOk = forwardResult?.reachable ?? false;
+				const backwardOk = backwardResult?.reachable ?? false;
+				const isMutualOk = forwardOk && backwardOk;
+
+				// 疎通状態に応じた色
+				let edgeColor: string;
+				if (isMutualOk) {
+					edgeColor = '#00d9ff'; // シアン: 相互疎通OK
+				} else if (forwardOk || backwardOk) {
+					edgeColor = '#ffaa00'; // オレンジ: 片方向のみ
+				} else {
+					edgeColor = '#a855f7'; // 紫: 疎通NG
+				}
+
+				connectivityEdges.push({
+					data: {
+						id: `connectivity-${hostA}-${hostB}`,
+						source: hostA,
+						target: hostB,
+						weight: 4,
+						color: edgeColor,
+						opacity: 0.7,
+						isConnectivity: true,
+						isMutualOk,
+						forwardOk,
+						backwardOk,
+						forwardError: forwardResult?.error,
+						backwardError: backwardResult?.error
+					}
+				});
+			}
+		}
+
+		if (connectivityEdges.length > 0) {
+			cy.add(connectivityEdges);
+		}
 	}
 
 	onMount(() => {
@@ -373,26 +507,64 @@
 			};
 		});
 
-		// ブロック/サスペンド関係のエッジを追加
+		// ブロック/サスペンド関係のエッジを追加（相互ブロックを検出してまとめる）
 		const blockedEdges: Array<{ data: Record<string, unknown> }> = [];
+
+		// まず全ブロック関係をマップに整理
+		const blockRelationMap = new Map<string, {
+			forward: boolean;  // A→B方向
+			backward: boolean; // B→A方向
+			isBlocked: boolean;
+			isSuspended: boolean;
+		}>();
+
 		for (const fed of blockedFederations) {
 			const sourceAllowed = serverHosts.has(fed.sourceHost) || viewpointHosts.has(fed.sourceHost);
 			const targetAllowed = serverHosts.has(fed.targetHost) || viewpointHosts.has(fed.targetHost);
 			if (!sourceAllowed || !targetAllowed) continue;
 
-			// ブロック関係は方向性があるのでソートしない（sourceがtargetをブロック）
-			// ブロック: 赤、サスペンド: オレンジ
-			const edgeColor = fed.isSuspended ? '#ffa502' : '#ff4757';
+			// キーを正規化（アルファベット順でソート）
+			const [hostA, hostB] = fed.sourceHost < fed.targetHost
+				? [fed.sourceHost, fed.targetHost]
+				: [fed.targetHost, fed.sourceHost];
+			const key = `${hostA}-${hostB}`;
+
+			const existing = blockRelationMap.get(key) || {
+				forward: false,
+				backward: false,
+				isBlocked: false,
+				isSuspended: false
+			};
+
+			// A→B方向かB→A方向かを記録
+			if (fed.sourceHost < fed.targetHost) {
+				existing.forward = true;
+			} else {
+				existing.backward = true;
+			}
+			existing.isBlocked = existing.isBlocked || fed.isBlocked;
+			existing.isSuspended = existing.isSuspended || fed.isSuspended;
+
+			blockRelationMap.set(key, existing);
+		}
+
+		// マップからエッジを生成
+		for (const [key, relation] of blockRelationMap) {
+			const [hostA, hostB] = key.split('-');
+			const isMutual = relation.forward && relation.backward;
+			const edgeColor = relation.isSuspended ? '#ffa502' : '#ff4757';
+
 			blockedEdges.push({
 				data: {
-					id: `blocked-${fed.sourceHost}-${fed.targetHost}`,
-					source: fed.sourceHost,
-					target: fed.targetHost,
+					id: `blocked-${key}`,
+					source: relation.forward ? hostA : hostB,
+					target: relation.forward ? hostB : hostA,
 					weight: 3,
 					color: edgeColor,
 					opacity: 0.8,
-					isBlocked: fed.isBlocked,
-					isSuspended: fed.isSuspended
+					isBlocked: relation.isBlocked,
+					isSuspended: relation.isSuspended,
+					isMutual // 相互ブロックかどうか
 				}
 			});
 		}
@@ -584,6 +756,29 @@
 					}
 				},
 				{
+					// 相互ブロック: 両端に矢印
+					selector: 'edge[?isMutual]',
+					style: {
+						'source-arrow-shape': 'triangle',
+						'source-arrow-color': 'data(color)'
+					}
+				},
+				{
+					// 疎通チェックエッジ: 点線スタイル
+					selector: 'edge[?isConnectivity]',
+					style: {
+						'line-style': 'dotted',
+						'line-dash-pattern': [2, 4],
+						'target-arrow-shape': 'triangle',
+						'target-arrow-color': 'data(color)',
+						'source-arrow-shape': 'triangle',
+						'source-arrow-color': 'data(color)',
+						'arrow-scale': 1,
+						'curve-style': 'bezier',
+						'z-index': 1000 // 最前面に表示
+					}
+				},
+				{
 					selector: 'edge:selected',
 					style: {
 						'line-color': 'rgba(255, 255, 255, 0.8)',
@@ -768,10 +963,29 @@
 			const targetId = edge.data('target');
 			const isBlocked = edge.data('isBlocked');
 			const isSuspended = edge.data('isSuspended');
+			const isConnectivity = edge.data('isConnectivity') || false;
+			const isMutual = edge.data('isMutual') || false;
+			const isMutualOk = edge.data('isMutualOk') || false;
+			const forwardOk = edge.data('forwardOk');
+			const backwardOk = edge.data('backwardOk');
 
 			// 関係の種類を判定
-			let relation: 'federation' | 'blocked' | 'suspended' = 'federation';
-			if (isSuspended) {
+			let relation: 'federation' | 'blocked' | 'suspended' | 'connectivity-ok' | 'connectivity-ng' = 'federation';
+			let connectivityError: string | undefined;
+
+			if (isConnectivity) {
+				if (isMutualOk) {
+					relation = 'connectivity-ok';
+				} else {
+					relation = 'connectivity-ng';
+					// エラー詳細を取得
+					if (!forwardOk) {
+						connectivityError = edge.data('forwardError');
+					} else if (!backwardOk) {
+						connectivityError = edge.data('backwardError');
+					}
+				}
+			} else if (isSuspended) {
 				relation = 'suspended';
 			} else if (isBlocked) {
 				relation = 'blocked';
@@ -793,7 +1007,9 @@
 					type: 'edge',
 					source: sourceId,
 					target: targetId,
-					relation
+					relation,
+					isMutual: isMutual || isMutualOk,
+					connectivityError
 				};
 			}
 
@@ -877,6 +1093,8 @@
 			if (cy) {
 				cy.fit(undefined, 50);
 			}
+			// 視点サーバー間の疎通チェックを開始
+			checkViewpointConnectivity();
 		});
 	}
 </script>
@@ -889,6 +1107,8 @@
 			class:edge-tooltip={tooltip.type === 'edge'}
 			class:blocked={tooltip.relation === 'blocked'}
 			class:suspended={tooltip.relation === 'suspended'}
+			class:connectivity-ok={tooltip.relation === 'connectivity-ok'}
+			class:connectivity-ng={tooltip.relation === 'connectivity-ng'}
 			style="left: {tooltip.x}px; top: {tooltip.y}px;"
 		>
 			{#if tooltip.type === 'node'}
@@ -898,10 +1118,16 @@
 				<div class="edge-relation">
 					{#if tooltip.relation === 'blocked'}
 						<span class="relation-icon">🚫</span>
-						<span class="relation-text">ブロック</span>
+						<span class="relation-text">{tooltip.isMutual ? '相互ブロック' : 'ブロック'}</span>
 					{:else if tooltip.relation === 'suspended'}
 						<span class="relation-icon">⏸️</span>
-						<span class="relation-text">配信停止</span>
+						<span class="relation-text">{tooltip.isMutual ? '相互配信停止' : '配信停止'}</span>
+					{:else if tooltip.relation === 'connectivity-ok'}
+						<span class="relation-icon">✓</span>
+						<span class="relation-text">相互疎通OK</span>
+					{:else if tooltip.relation === 'connectivity-ng'}
+						<span class="relation-icon">✗</span>
+						<span class="relation-text">疎通NG</span>
 					{:else}
 						<span class="relation-icon">🔗</span>
 						<span class="relation-text">連合</span>
@@ -909,9 +1135,12 @@
 				</div>
 				<div class="edge-hosts">
 					<span class="edge-source">{tooltip.source}</span>
-					<span class="edge-arrow">{tooltip.relation === 'federation' ? '↔' : '→'}</span>
+					<span class="edge-arrow">{tooltip.relation === 'federation' || tooltip.isMutual ? '↔' : '→'}</span>
 					<span class="edge-target">{tooltip.target}</span>
 				</div>
+				{#if tooltip.connectivityError}
+					<div class="connectivity-error">{tooltip.connectivityError}</div>
+				{/if}
 			{/if}
 		</div>
 	{/if}
@@ -971,6 +1200,8 @@
 		<div class="legend-item"><span class="legend-key">中心</span><span class="legend-val">繋がり多</span></div>
 		<div class="legend-item legend-blocked"><span class="legend-key">赤破線</span><span class="legend-val">ブロック</span></div>
 		<div class="legend-item legend-suspended"><span class="legend-key">橙破線</span><span class="legend-val">配信停止</span></div>
+		<div class="legend-item legend-connectivity-ok"><span class="legend-key">青点線</span><span class="legend-val">疎通OK</span></div>
+		<div class="legend-item legend-connectivity-ng"><span class="legend-key">紫点線</span><span class="legend-val">疎通NG</span></div>
 		<div class="legend-item"><span class="legend-key">🔒</span><span class="legend-val">連合非公開</span></div>
 	</div>
 </div>
@@ -1024,6 +1255,16 @@
 		background: rgba(255, 165, 2, 0.15);
 	}
 
+	.graph-tooltip.edge-tooltip.connectivity-ok {
+		border-color: rgba(0, 217, 255, 0.5);
+		background: rgba(0, 217, 255, 0.15);
+	}
+
+	.graph-tooltip.edge-tooltip.connectivity-ng {
+		border-color: rgba(168, 85, 247, 0.5);
+		background: rgba(168, 85, 247, 0.15);
+	}
+
 	@keyframes tooltip-fade-in {
 		from {
 			opacity: 0;
@@ -1069,6 +1310,28 @@
 
 	.graph-tooltip.suspended .relation-text {
 		color: #ffbe76;
+	}
+
+	.graph-tooltip.connectivity-ok .relation-text {
+		color: #00d9ff;
+	}
+
+	.graph-tooltip.connectivity-ok .relation-icon {
+		color: #00d9ff;
+	}
+
+	.graph-tooltip.connectivity-ng .relation-text {
+		color: #c084fc;
+	}
+
+	.graph-tooltip.connectivity-ng .relation-icon {
+		color: #c084fc;
+	}
+
+	.connectivity-error {
+		font-size: 0.6rem;
+		color: var(--fg-muted);
+		margin-top: 0.125rem;
 	}
 
 	.edge-hosts {
@@ -1219,6 +1482,22 @@
 
 	.legend-suspended .legend-val {
 		color: #ffbe76;
+	}
+
+	.legend-connectivity-ok .legend-key {
+		color: #00d9ff;
+	}
+
+	.legend-connectivity-ok .legend-val {
+		color: #66e5ff;
+	}
+
+	.legend-connectivity-ng .legend-key {
+		color: #a855f7;
+	}
+
+	.legend-connectivity-ng .legend-val {
+		color: #c084fc;
 	}
 
 	@media (max-width: 768px) {
