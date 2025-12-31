@@ -230,10 +230,16 @@
 
 	// 疎通チェック結果をグラフに反映
 	function addConnectivityEdges() {
-		if (!cy || viewpointServers.length < 2) return;
+		if (!cy || isDestroying || viewpointServers.length < 2) return;
 
-		// 既存の疎通エッジを削除
-		cy.elements('edge[?isConnectivity]').remove();
+		try {
+			// 既存の疎通エッジを削除
+			cy.elements('edge[?isConnectivity]').remove();
+		} catch (e) {
+			// グラフが破棄中の場合はエラーを無視
+			console.debug('Error removing connectivity edges:', e);
+			return;
+		}
 
 		// 視点サーバー間の疎通エッジを追加
 		const connectivityEdges: Array<{ data: Record<string, unknown> }> = [];
@@ -282,7 +288,12 @@
 		}
 
 		if (connectivityEdges.length > 0) {
-			cy.add(connectivityEdges);
+			try {
+				cy.add(connectivityEdges);
+			} catch (e) {
+				// グラフが破棄中の場合はエラーを無視
+				console.debug('Error adding connectivity edges:', e);
+			}
 		}
 	}
 
@@ -357,33 +368,38 @@
 		const currentViewpoints = JSON.stringify(viewpointServers.slice().sort());
 		const prevViewpoints = JSON.stringify(prevViewpointServers.slice().sort());
 
-		if (currentViewpoints !== prevViewpoints && cy) {
+		if (currentViewpoints !== prevViewpoints && cy && !isDestroying) {
 			prevViewpointServers = [...viewpointServers];
 
-			// ノードのハイライトを更新（再描画なし）
-			cy.nodes().forEach((node: import('cytoscape').NodeSingular) => {
-				const isViewpoint = viewpointServers.includes(node.id());
-				if (isViewpoint) {
-					node.data('isViewpoint', true);
-					node.style({
-						'border-width': 3,
-						'border-color': '#86b300',
-						'border-style': 'solid'
-					});
-				} else {
-					node.data('isViewpoint', false);
-					const nodeColor = node.data('color');
-					const borderWidth = node.data('borderWidth');
-					node.style({
-						'border-width': borderWidth,
-						'border-color': nodeColor,
-						'border-style': 'solid'
-					});
-				}
-			});
+			try {
+				// ノードのハイライトを更新（再描画なし）
+				cy.nodes().forEach((node: import('cytoscape').NodeSingular) => {
+					const isViewpoint = viewpointServers.includes(node.id());
+					if (isViewpoint) {
+						node.data('isViewpoint', true);
+						node.style({
+							'border-width': 3,
+							'border-color': '#86b300',
+							'border-style': 'solid'
+						});
+					} else {
+						node.data('isViewpoint', false);
+						const nodeColor = node.data('color');
+						const borderWidth = node.data('borderWidth');
+						node.style({
+							'border-width': borderWidth,
+							'border-color': nodeColor,
+							'border-style': 'solid'
+						});
+					}
+				});
 
-			// 疎通チェックを再実行
-			checkViewpointConnectivity();
+				// 疎通チェックを再実行
+				checkViewpointConnectivity();
+			} catch (e) {
+				// グラフが破棄中の場合はエラーを無視
+				console.debug('Error updating viewpoint highlights:', e);
+			}
 		}
 	});
 
