@@ -6,7 +6,6 @@
 	import FederationGraph from '$lib/components/FederationGraph.svelte';
 	import ServerInfoPopup from '$lib/components/ServerInfoPopup.svelte';
 	import SearchPanel from '$lib/components/SearchPanel.svelte';
-	import ActiveFederationsPanel from '$lib/components/ActiveFederationsPanel.svelte';
 	import FederatedSoftwarePanel from '$lib/components/FederatedSoftwarePanel.svelte';
 	import {
 		DEFAULT_FILTER,
@@ -667,13 +666,6 @@
 					{isMobile}
 					defaultOpen={false}
 				/>
-				<ActiveFederationsPanel
-					federations={displayFederations()}
-					viewpointServers={settings.viewpointServers}
-					onFocusServer={handleFocusViewpoint}
-					{isMobile}
-					defaultOpen={false}
-				/>
 			</div>
 			<!-- モバイル: グラフ -->
 			<div class="mobile-graph">
@@ -740,11 +732,6 @@
 					federations={displayFederations()}
 					viewpointServers={settings.viewpointServers}
 					bind:selectedRepositoryUrls={filter.repositoryUrls}
-				/>
-				<ActiveFederationsPanel
-					federations={displayFederations()}
-					viewpointServers={settings.viewpointServers}
-					onFocusServer={handleFocusViewpoint}
 				/>
 			</aside>
 		{/if}
