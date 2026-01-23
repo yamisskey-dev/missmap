@@ -184,36 +184,42 @@
 
 <style>
 	.filter-panel {
-		padding: 0.5rem 0.625rem;
+		padding: 0.625rem 0.75rem;
 	}
 
 	.panel-header-toggle {
 		display: flex;
 		align-items: center;
-		gap: 0.25rem;
+		gap: 0.375rem;
 		width: 100%;
-		padding: 0;
-		margin-bottom: 0.375rem;
+		padding: 0.25rem 0;
+		margin-bottom: 0.5rem;
 		background: transparent;
 		border: none;
 		cursor: pointer;
 		text-align: left;
+		border-radius: var(--radius-sm);
+		transition: background var(--transition-fast);
+	}
+
+	.panel-header-toggle:hover {
+		background: rgba(134, 179, 0, 0.05);
 	}
 
 	.panel-header-toggle h3 {
 		flex: 1;
 		margin: 0;
-		font-size: 0.85rem;
+		font-size: 0.875rem;
 		font-weight: 700;
-		letter-spacing: -0.01em;
+		letter-spacing: -0.02em;
 		color: var(--fg-primary);
 	}
 
 	.toggle-icon {
-		width: 14px;
-		height: 14px;
+		width: 16px;
+		height: 16px;
 		color: var(--fg-muted);
-		transition: transform var(--transition-fast);
+		transition: transform var(--transition-bounce);
 	}
 
 	.toggle-icon.expanded {
@@ -221,25 +227,26 @@
 	}
 
 	.panel-icon {
-		width: 16px;
-		height: 16px;
+		width: 18px;
+		height: 18px;
 		color: var(--accent-500);
+		filter: drop-shadow(0 0 4px rgba(134, 179, 0, 0.3));
 	}
 
 	h3 {
 		margin: 0;
-		font-size: 0.85rem;
+		font-size: 0.875rem;
 		font-weight: 700;
-		letter-spacing: -0.01em;
+		letter-spacing: -0.02em;
 	}
 
 	h4 {
-		margin: 0.5rem 0 0.25rem;
+		margin: 0.75rem 0 0.375rem;
 		font-size: 0.65rem;
 		font-weight: 600;
 		color: var(--fg-muted);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: 0.06em;
 	}
 
 	section:first-of-type h4 {
@@ -250,75 +257,88 @@
 	.chip-group {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.25rem;
+		gap: 0.375rem;
 	}
 
 	.filter-chip {
-		padding: 0.25rem 0.5rem;
-		background: var(--bg-card);
+		padding: 0.375rem 0.625rem;
+		background: var(--glass-bg-subtle);
 		border: 1px solid var(--border-color);
-		border-radius: 12px;
+		border-radius: var(--radius-full);
 		font-size: 0.7rem;
+		font-weight: 500;
 		color: var(--fg-secondary);
 		cursor: pointer;
-		transition: all var(--transition-fast), transform 0.1s ease;
+		transition: all var(--transition-bounce);
+		box-shadow: var(--shadow-xs);
 	}
 
 	.filter-chip:hover {
 		border-color: var(--border-color-hover);
 		box-shadow: var(--shadow-sm);
+		transform: translateY(-1px);
 	}
 
 	.filter-chip:active {
-		transform: scale(0.95);
+		transform: scale(0.96) translateY(0);
 	}
 
 	.filter-chip.active {
-		background: rgba(134, 179, 0, 0.15);
-		border-color: var(--accent-600);
+		background: rgba(134, 179, 0, 0.18);
+		border-color: var(--accent-500);
 		color: var(--accent-400);
-		animation: chip-activate 0.3s ease-out;
+		box-shadow: var(--shadow-sm), 0 0 12px rgba(134, 179, 0, 0.2);
+		animation: chip-activate 0.35s var(--ease-out-back);
 	}
 
 	@keyframes chip-activate {
 		0% { transform: scale(1); }
-		50% { transform: scale(1.05); }
+		40% { transform: scale(1.08); }
 		100% { transform: scale(1); }
 	}
 
 	/* Edge chips - 色付きのアクティブ状態 */
 	.edge-chip.federation.active {
-		background: rgba(134, 179, 0, 0.15);
-		border-color: var(--accent-600);
+		background: rgba(134, 179, 0, 0.18);
+		border-color: var(--accent-500);
 		color: var(--accent-400);
+		box-shadow: var(--shadow-sm), 0 0 12px rgba(134, 179, 0, 0.25);
 	}
 
 	.edge-chip.blocked.active {
-		background: rgba(255, 71, 87, 0.15);
+		background: rgba(255, 71, 87, 0.18);
 		border-color: #ff4757;
 		color: #ff6b6b;
+		box-shadow: var(--shadow-sm), 0 0 12px rgba(255, 71, 87, 0.25);
 	}
 
 	.edge-chip.suspended.active {
-		background: rgba(255, 165, 2, 0.15);
+		background: rgba(255, 165, 2, 0.18);
 		border-color: #ffa502;
 		color: #ffbe76;
+		box-shadow: var(--shadow-sm), 0 0 12px rgba(255, 165, 2, 0.25);
 	}
 
 	.edge-chip.connectivity-ok.active {
-		background: rgba(59, 130, 246, 0.15);
+		background: rgba(59, 130, 246, 0.18);
 		border-color: #3b82f6;
 		color: #60a5fa;
+		box-shadow: var(--shadow-sm), 0 0 12px rgba(59, 130, 246, 0.25);
 	}
 
 	.edge-chip.connectivity-ng.active {
-		background: rgba(168, 85, 247, 0.15);
+		background: rgba(168, 85, 247, 0.18);
 		border-color: #a855f7;
 		color: #c084fc;
+		box-shadow: var(--shadow-sm), 0 0 12px rgba(168, 85, 247, 0.25);
 	}
 
 	/* 非アクティブ時は薄く */
 	.edge-chip:not(.active) {
-		opacity: 0.5;
+		opacity: 0.55;
+	}
+
+	.edge-chip:not(.active):hover {
+		opacity: 0.8;
 	}
 </style>

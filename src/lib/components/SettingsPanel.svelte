@@ -203,20 +203,26 @@
 
 <style>
 	.settings-panel {
-		padding: 0.5rem 0.625rem;
+		padding: 0.625rem 0.75rem;
 	}
 
 	.panel-header-toggle {
 		display: flex;
 		align-items: center;
-		gap: 0.25rem;
+		gap: 0.375rem;
 		width: 100%;
-		padding: 0;
-		margin-bottom: 0.375rem;
+		padding: 0.25rem 0;
+		margin-bottom: 0.5rem;
 		background: transparent;
 		border: none;
 		cursor: pointer;
 		text-align: left;
+		border-radius: var(--radius-sm);
+		transition: background var(--transition-fast);
+	}
+
+	.panel-header-toggle:hover {
+		background: rgba(134, 179, 0, 0.05);
 	}
 
 	.panel-header-toggle h4 {
@@ -226,10 +232,10 @@
 	}
 
 	.toggle-icon {
-		width: 14px;
-		height: 14px;
+		width: 16px;
+		height: 16px;
 		color: var(--fg-muted);
-		transition: transform var(--transition-fast);
+		transition: transform var(--transition-bounce);
 	}
 
 	.toggle-icon.expanded {
@@ -237,90 +243,100 @@
 	}
 
 	.panel-icon {
-		width: 16px;
-		height: 16px;
+		width: 18px;
+		height: 18px;
 		color: var(--accent-500);
+		filter: drop-shadow(0 0 4px rgba(134, 179, 0, 0.3));
 	}
 
 	h4 {
 		margin: 0;
-		font-size: 0.85rem;
+		font-size: 0.875rem;
 		font-weight: 700;
-		letter-spacing: -0.01em;
+		letter-spacing: -0.02em;
 	}
 
 	/* Criteria Selector */
 	.criteria-selector {
-		margin-bottom: 0.5rem;
+		margin-bottom: 0.625rem;
 	}
 
 	.criteria-selector label {
 		display: block;
-		margin-bottom: 0.25rem;
+		margin-bottom: 0.375rem;
 		font-size: 0.7rem;
 		font-weight: 500;
-		color: var(--fg-secondary);
+		color: var(--fg-muted);
+		letter-spacing: 0.02em;
 	}
 
 	.criteria-buttons {
 		display: flex;
-		gap: 0.25rem;
+		gap: 0.375rem;
 		flex-wrap: wrap;
+		background: var(--glass-bg-subtle);
+		padding: 0.25rem;
+		border-radius: var(--radius-md);
+		border: 1px solid var(--border-color);
 	}
 
 	.criteria-btn {
 		flex: 1;
 		min-width: fit-content;
-		padding: 0.375rem 0.5rem;
-		background: var(--bg-card);
-		border: 1px solid var(--border-color);
+		padding: 0.5rem 0.625rem;
+		background: transparent;
+		border: 1px solid transparent;
 		border-radius: var(--radius-sm);
 		font-size: 0.7rem;
 		font-weight: 500;
 		color: var(--fg-secondary);
 		cursor: pointer;
-		transition: all var(--transition-fast);
+		transition: all var(--transition-bounce);
 	}
 
 	.criteria-btn:hover {
-		border-color: var(--border-color-hover);
+		background: var(--bg-card);
 		color: var(--fg-primary);
 	}
 
 	.criteria-btn.active {
-		background: rgba(134, 179, 0, 0.15);
+		background: rgba(134, 179, 0, 0.18);
 		border-color: var(--accent-500);
 		color: var(--accent-400);
 		font-weight: 600;
+		box-shadow: 0 0 12px rgba(134, 179, 0, 0.2);
 	}
 
 	/* Viewpoint Chips */
 	.viewpoint-chips {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.25rem;
-		margin-bottom: 0.375rem;
+		gap: 0.375rem;
+		margin-bottom: 0.5rem;
 	}
 
 	.viewpoint-chip {
 		display: inline-flex;
 		align-items: center;
-		background: var(--bg-card);
+		background: var(--glass-bg-subtle);
 		border: 1px solid var(--border-color);
-		border-radius: 12px;
+		border-radius: var(--radius-full);
 		overflow: hidden;
-		transition: all var(--transition-fast);
+		transition: all var(--transition-bounce);
+		box-shadow: var(--shadow-xs);
 	}
 
 	.viewpoint-chip:hover {
-		border-color: var(--border-color-hover);
+		border-color: var(--accent-500);
+		box-shadow: var(--shadow-sm), 0 0 8px rgba(134, 179, 0, 0.15);
+		transform: translateY(-1px);
 	}
 
 	.chip-main {
 		display: flex;
 		align-items: center;
-		gap: 0.25rem;
-		padding: 0.25rem 0.5rem;
+		gap: 0.375rem;
+		padding: 0.375rem 0.625rem;
 		background: transparent;
 		border: none;
 		font-size: 0.7rem;
@@ -331,31 +347,32 @@
 	}
 
 	.chip-main:hover {
-		color: var(--fg-primary);
+		color: var(--accent-400);
 	}
 
 	.ssr-dot {
-		width: 5px;
-		height: 5px;
+		width: 6px;
+		height: 6px;
 		background: var(--accent-500);
 		border-radius: 50%;
 		flex-shrink: 0;
+		box-shadow: 0 0 6px rgba(134, 179, 0, 0.5);
 	}
 
 	.chip-remove {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 18px;
-		height: 18px;
+		width: 20px;
+		height: 20px;
 		padding: 0;
-		margin-right: 0.125rem;
+		margin-right: 0.25rem;
 		background: transparent;
 		border: none;
 		border-radius: 50%;
 		color: var(--fg-muted);
 		cursor: pointer;
-		transition: all var(--transition-fast);
+		transition: all var(--transition-bounce);
 	}
 
 	.chip-remove svg {
@@ -364,14 +381,15 @@
 	}
 
 	.chip-remove:hover {
-		background: rgba(255, 100, 100, 0.15);
+		background: rgba(255, 100, 100, 0.18);
 		color: #fca5a5;
+		transform: scale(1.1);
 	}
 
 	/* Action buttons */
 	.action-buttons {
 		display: flex;
-		gap: 0.25rem;
+		gap: 0.375rem;
 	}
 
 	.add-viewpoint-btn {
@@ -379,61 +397,65 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.25rem;
-		padding: 0.375rem;
+		gap: 0.375rem;
+		padding: 0.5rem;
 		background: transparent;
-		border: 1px dashed var(--border-color);
-		border-radius: var(--radius-sm);
+		border: 1.5px dashed var(--border-color);
+		border-radius: var(--radius-md);
 		font-size: 0.7rem;
 		font-weight: 500;
 		color: var(--fg-muted);
 		cursor: pointer;
-		transition: all var(--transition-fast);
+		transition: all var(--transition-bounce);
 	}
 
 	.add-viewpoint-btn svg {
-		width: 12px;
-		height: 12px;
+		width: 14px;
+		height: 14px;
 	}
 
 	.add-viewpoint-btn:hover {
 		background: rgba(134, 179, 0, 0.1);
 		border-color: var(--accent-500);
+		border-style: solid;
 		color: var(--accent-400);
+		transform: translateY(-1px);
+		box-shadow: 0 0 12px rgba(134, 179, 0, 0.15);
 	}
 
 	.reset-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.25rem;
-		padding: 0.375rem 0.5rem;
+		gap: 0.375rem;
+		padding: 0.5rem 0.625rem;
 		background: transparent;
 		border: 1px solid var(--border-color);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-md);
 		font-size: 0.7rem;
 		font-weight: 500;
 		color: var(--fg-muted);
 		cursor: pointer;
-		transition: all var(--transition-fast);
+		transition: all var(--transition-bounce);
 	}
 
 	.reset-btn svg {
-		width: 12px;
-		height: 12px;
+		width: 14px;
+		height: 14px;
 	}
 
 	.reset-btn:hover {
 		background: rgba(134, 179, 0, 0.1);
 		border-color: var(--accent-500);
 		color: var(--accent-400);
+		transform: translateY(-1px);
 	}
 
 	/* Input group */
 	.input-group {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 0.625rem;
 	}
 
 	.input-wrapper {
@@ -444,22 +466,28 @@
 
 	.input-icon {
 		position: absolute;
-		left: 0.75rem;
+		left: 0.875rem;
 		width: 16px;
 		height: 16px;
 		color: var(--fg-muted);
 		pointer-events: none;
+		transition: color var(--transition-fast);
+	}
+
+	.input-wrapper:focus-within .input-icon {
+		color: var(--accent-500);
 	}
 
 	input {
 		width: 100%;
-		padding: 0.625rem 0.75rem 0.625rem 2.25rem;
-		background: var(--bg-card);
+		padding: 0.75rem 0.875rem 0.75rem 2.5rem;
+		background: var(--glass-bg-subtle);
 		border: 1px solid var(--border-color);
 		border-radius: var(--radius-md);
 		font-size: 0.85rem;
 		color: var(--fg-primary);
 		transition: all var(--transition-fast);
+		box-shadow: var(--shadow-inset);
 	}
 
 	input::placeholder {
@@ -469,12 +497,13 @@
 	input:focus {
 		outline: none;
 		border-color: var(--accent-500);
-		box-shadow: 0 0 0 3px rgba(134, 179, 0, 0.15);
+		box-shadow: 0 0 0 3px rgba(134, 179, 0, 0.12), var(--shadow-inset);
+		background: var(--bg-card);
 	}
 
 	.button-group {
 		display: flex;
-		gap: 0.375rem;
+		gap: 0.5rem;
 	}
 
 	.apply-btn {
@@ -483,15 +512,16 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0.375rem;
-		padding: 0.5rem 0.75rem;
-		background: var(--accent-600);
+		padding: 0.625rem 1rem;
+		background: linear-gradient(135deg, var(--accent-600), var(--accent-500));
 		border: none;
 		border-radius: var(--radius-md);
 		font-size: 0.8rem;
 		font-weight: 600;
 		color: white;
 		cursor: pointer;
-		transition: all var(--transition-fast);
+		transition: all var(--transition-bounce);
+		box-shadow: var(--shadow-sm);
 	}
 
 	.apply-btn svg {
@@ -500,22 +530,25 @@
 	}
 
 	.apply-btn:hover {
-		background: var(--accent-500);
-		transform: translateY(-1px);
-		box-shadow: 0 4px 12px rgba(134, 179, 0, 0.3);
+		transform: translateY(-2px);
+		box-shadow: var(--shadow-md), 0 0 16px rgba(134, 179, 0, 0.3);
+	}
+
+	.apply-btn:active {
+		transform: translateY(0);
 	}
 
 	.cancel-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 0.5rem;
-		background: var(--bg-card);
+		padding: 0.625rem;
+		background: var(--glass-bg-subtle);
 		border: 1px solid var(--border-color);
 		border-radius: var(--radius-md);
 		color: var(--fg-muted);
 		cursor: pointer;
-		transition: all var(--transition-fast);
+		transition: all var(--transition-bounce);
 	}
 
 	.cancel-btn svg {
@@ -524,8 +557,9 @@
 	}
 
 	.cancel-btn:hover {
-		background: rgba(255, 100, 100, 0.1);
+		background: rgba(255, 100, 100, 0.12);
 		border-color: rgba(255, 100, 100, 0.3);
 		color: #fca5a5;
+		transform: scale(1.05);
 	}
 </style>
