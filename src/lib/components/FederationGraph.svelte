@@ -118,6 +118,9 @@
 	let starOffset = { x: 0, y: 0 };
 	const PARALLAX_FACTOR = 0.15; // 星の移動量（グラフの15%）
 
+	// viewportイベントのスロットリング用
+	let viewportThrottleId: number | null = null;
+
 	function destroyCy() {
 		if (cy && !isDestroying) {
 			isDestroying = true;
@@ -348,6 +351,9 @@
 			if (focusHighlightTimeout) {
 				clearTimeout(focusHighlightTimeout);
 			}
+			if (viewportThrottleId !== null) {
+				cancelAnimationFrame(viewportThrottleId);
+			}
 			stopInertia();
 			destroyCy();
 		};
@@ -379,19 +385,22 @@
 	});
 
 	// 視点サーバー変更時はハイライトのみ更新（グラフ再描画なし）
-	let prevViewpointServers: string[] = [];
+	let prevViewpointHash = '';
 	$effect(() => {
-		// 視点サーバーの変更を検出
-		const currentViewpoints = JSON.stringify(viewpointServers.slice().sort());
-		const prevViewpoints = JSON.stringify(prevViewpointServers.slice().sort());
+		// 視点サーバーの変更を検出（JSON.stringify→join比較に最適化）
+		const currentHash = viewpointServers.slice().sort().join(',');
 
-		if (currentViewpoints !== prevViewpoints && cy && !isDestroying) {
-			prevViewpointServers = [...viewpointServers];
+		if (currentHash !== prevViewpointHash && cy && !isDestroying) {
+			prevViewpointHash = currentHash;
 
 			try {
-				// ノードのハイライトを更新（再描画なし）
+				// Set化してO(1)ルックアップに最適化
+				const viewpointSet = new Set(viewpointServers);
+
+				// バッチ処理でスタイル更新をまとめる
+				cy.startBatch();
 				cy.nodes().forEach((node: import('cytoscape').NodeSingular) => {
-					const isViewpoint = viewpointServers.includes(node.id());
+					const isViewpoint = viewpointSet.has(node.id());
 					if (isViewpoint) {
 						node.data('isViewpoint', true);
 						node.style({
@@ -410,6 +419,7 @@
 						});
 					}
 				});
+				cy.endBatch();
 
 				// 疎通チェックを再実行
 				checkViewpointConnectivity();
@@ -439,6 +449,9 @@
 		const { showFederation, showBlocked, showSuspended, showConnectivityOk, showConnectivityNg } = edgeVisibility;
 
 		try {
+			// バッチ処理でスタイル更新をまとめる（パフォーマンス最適化）
+			cy.startBatch();
+
 			// 通常の連合エッジの表示/非表示（isFederationがtrueでisBlocked/isSuspendedがfalse）
 			const federationEdges = cy.edges('[?isFederation][!isBlocked][!isSuspended]');
 			federationEdges.style('display', showFederation ? 'element' : 'none');
@@ -473,6 +486,8 @@
 				// 表示中のエッジがなければノードを非表示
 				node.style('display', visibleEdges.length > 0 ? 'element' : 'none');
 			});
+
+			cy.endBatch();
 		} catch (e) {
 			// Cytoscapeが破棄されている可能性があるため、エラーは無視
 			console.warn('Failed to update edge visibility:', e);
@@ -958,10 +973,10 @@
 			layout: {
 				name: 'fcose',
 				animate: true,
-				animationDuration: 1200,
+				animationDuration: 800,
 				animationEasing: 'ease-out-cubic',
-				// 最高品質設定
-				quality: 'proof',
+				// パフォーマンス最適化: defaultに変更（proofは重すぎる）
+				quality: 'default',
 				// ランダム初期配置（重要）
 				randomize: true,
 				// パディング
@@ -998,14 +1013,12 @@
 				tile: true,
 				tilingPaddingVertical: 25,
 				tilingPaddingHorizontal: 25,
-				// 十分なイテレーション
-				numIter: Math.min(6000, Math.max(4000, nodes.length * 18)),
+				// イテレーション数を削減（パフォーマンス最適化）
+				numIter: Math.min(2500, Math.max(1500, nodes.length * 8)),
 				// ラベルを考慮したノードサイズ
 				nodeDimensionsIncludeLabels: false,
 				// フィット設定
-				fit: true,
-				// サンプリングを無効化（より正確な計算）
-				samplingType: false
+				fit: true
 			},
 			// インタラクティブ設定
 			minZoom: 0.3,
@@ -1347,17 +1360,25 @@
 		// ドラッグは無効化（連合関係の距離感を維持）
 		cy.nodes().ungrabify();
 
-		// 宇宙空間の慣性パン + パララックス効果
+		// 宇宙空間の慣性パン + パララックス効果（スロットリング付き）
 		cy.on('viewport', () => {
 			if (isPanning && cy) {
-				const pan = cy.pan();
-				const deltaX = pan.x - lastPanPosition.x;
-				const deltaY = pan.y - lastPanPosition.y;
-				panVelocity = { x: deltaX, y: deltaY };
-				lastPanPosition = { x: pan.x, y: pan.y };
+				// スロットリング: 前回のリクエストがあればスキップ
+				if (viewportThrottleId !== null) return;
 
-				// ドラッグ中もパララックス効果
-				updateParallax(deltaX, deltaY);
+				viewportThrottleId = requestAnimationFrame(() => {
+					viewportThrottleId = null;
+					if (!cy || !isPanning) return;
+
+					const pan = cy.pan();
+					const deltaX = pan.x - lastPanPosition.x;
+					const deltaY = pan.y - lastPanPosition.y;
+					panVelocity = { x: deltaX, y: deltaY };
+					lastPanPosition = { x: pan.x, y: pan.y };
+
+					// ドラッグ中もパララックス効果
+					updateParallax(deltaX, deltaY);
+				});
 			}
 		});
 
@@ -1572,8 +1593,8 @@
 
 	<!-- 宇宙空間の星（パララックス効果付き） -->
 	<div class="stars-layer" bind:this={starsLayer} aria-hidden="true">
-		<!-- 通常の星 -->
-		{#each { length: 60 } as _, i}
+		<!-- 通常の星（パフォーマンス最適化: 60→35に削減） -->
+		{#each { length: 35 } as _, i}
 			{@const starType = i % 5}
 			<div
 				class="star"
@@ -1590,8 +1611,8 @@
 			></div>
 		{/each}
 
-		<!-- 宇宙塵/パーティクル -->
-		{#each { length: 25 } as _, i}
+		<!-- 宇宙塵/パーティクル（パフォーマンス最適化: 25→12に削減） -->
+		{#each { length: 12 } as _, i}
 			<div
 				class="space-dust"
 				style="
