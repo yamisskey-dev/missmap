@@ -20,6 +20,7 @@
 		"wrangler": "^4.54.0"
 	},
 	"dependencies": {
-		"cytoscape": "^3.30.0"
+		"cytoscape": "^3.30.0",
+		"cytoscape-fcose": "^2.2.0"
 	}
 }

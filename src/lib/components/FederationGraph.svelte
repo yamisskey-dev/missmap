@@ -8,7 +8,15 @@
 	let cytoscapePromise: Promise<typeof import('cytoscape').default> | null = null;
 	async function getCytoscape() {
 		if (!cytoscapePromise) {
-			cytoscapePromise = import('cytoscape').then(m => m.default);
+			cytoscapePromise = (async () => {
+				const [cytoscape, fcose] = await Promise.all([
+					import('cytoscape').then(m => m.default),
+					import('cytoscape-fcose').then(m => m.default)
+				]);
+				// fcoseレイアウトを登録
+				cytoscape.use(fcose);
+				return cytoscape;
+			})();
 		}
 		return cytoscapePromise;
 	}
@@ -786,8 +794,8 @@
 				const logUsers = Math.log10(users + 1);
 				// 0-1に正規化
 				const normalized = (logUsers - logMinUsers) / logUserRange;
-				// 20-200pxの範囲にマッピング（差をより明確に）
-				size = 20 + normalized * 180;
+				// 12-70pxの範囲にマッピング（コンパクトに）
+				size = 12 + normalized * 58;
 
 				label = server.name ?? server.host;
 				repositoryUrl = server.repositoryUrl;
@@ -798,7 +806,7 @@
 				hasIcon = true;
 			} else {
 				// 未知のサーバー（連合先）- faviconを試す
-				size = 15;
+				size = 10;
 				label = host;
 				repositoryUrl = null;
 				iconUrl = proxyIconUrl(`https://${host}/favicon.ico`);
@@ -827,10 +835,10 @@
 		// ノードサイズに応じたフォントサイズを計算
 		for (const node of nodes) {
 			const size = node.data.size as number;
-			// サイズに比例したフォントサイズ（8px〜16px）
-			node.data.fontSize = Math.min(Math.max(size / 8, 8), 16);
+			// サイズに比例したフォントサイズ（6px〜12px）
+			node.data.fontSize = Math.min(Math.max(size / 6, 6), 12);
 			// ボーダー幅もサイズに応じて
-			node.data.borderWidth = Math.min(Math.max(size / 20, 2), 6);
+			node.data.borderWidth = Math.min(Math.max(size / 15, 1.5), 4);
 		}
 
 		cy = cytoscape({
@@ -948,30 +956,56 @@
 				}
 			],
 			layout: {
-				name: 'cose',
+				name: 'fcose',
 				animate: true,
-				animationDuration: 1000, // 1.5秒→1秒に短縮
-				nodeRepulsion: () => 50000,
+				animationDuration: 1200,
+				animationEasing: 'ease-out-cubic',
+				// 最高品質設定
+				quality: 'proof',
+				// ランダム初期配置（重要）
+				randomize: true,
+				// パディング
+				padding: 50,
+				// ノードサイズに応じた反発力（大きいノードは強く反発）
+				nodeRepulsion: (node: { data: (key: string) => number }) => {
+					const size = node.data('size') || 30;
+					// サイズに比例した反発力（4000〜16000 - クラスター間分離強化）
+					return 4000 + (size / 70) * 12000;
+				},
+				// エッジの理想的な長さ（関係の強さに基づく - 極端な差をつける）
 				idealEdgeLength: (edge: { data: (key: string) => number }) => {
 					const weight = edge.data('weight') || 1;
-					// weight: 1-30 → length: 500-50 (反比例)
-					// 重みが大きいほど距離が短い（強い繋がり＝近い）
-					// より大きな差をつけて芋づる式の距離感を表現
-					const normalized = (weight - 1) / 29; // 0-1
-					return 500 - normalized * 450; // 500→50
+					// weight: 1-30 → length: 280-10
+					// 関係が強いほど大幅に短く（クラスタリング強化）
+					const normalized = Math.min(1, (weight - 1) / 29);
+					// より強い非線形スケール（弱い関係をより離す、強い関係をより近く）
+					const curve = Math.pow(normalized, 0.4);
+					return 280 - curve * 270;
 				},
+				// エッジの弾性（高いほどエッジ長に忠実）
 				edgeElasticity: (edge: { data: (key: string) => number }) => {
 					const weight = edge.data('weight') || 1;
-					// 重みに比例してばね力を強く
-					// 強い繋がりはより強く引き付ける
-					return weight * 300;
+					// 関係が強いほど弾性を高く（より強く引き寄せる）
+					const normalized = Math.min(1, (weight - 1) / 29);
+					return 0.25 + normalized * 0.7;
 				},
-				gravity: 0.15, // 重力を弱めて自然な配置に
-				// ノード数に応じてイテレーション数を動的調整（小規模グラフで高速化）
-				numIter: Math.min(1500, Math.max(500, nodes.length * 3)),
-				coolingFactor: 0.96, // 0.97→0.96に変更（早く収束）
-				padding: 80,
-				randomize: false
+				// 重力設定（中心に集める力を強化）
+				gravity: 0.15,
+				gravityRange: 3.5,
+				// 重力の中心（グラフの重心）
+				gravityCompound: 1.2,
+				// コンポーネント間の配置
+				tile: true,
+				tilingPaddingVertical: 25,
+				tilingPaddingHorizontal: 25,
+				// 十分なイテレーション
+				numIter: Math.min(6000, Math.max(4000, nodes.length * 18)),
+				// ラベルを考慮したノードサイズ
+				nodeDimensionsIncludeLabels: false,
+				// フィット設定
+				fit: true,
+				// サンプリングを無効化（より正確な計算）
+				samplingType: false
 			},
 			// インタラクティブ設定
 			minZoom: 0.3,
