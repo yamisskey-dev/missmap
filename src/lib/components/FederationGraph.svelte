@@ -54,21 +54,179 @@
 		onSelectServer?: (server: ServerInfo | null, position: { x: number; y: number } | null) => void;
 		onSelectEdge?: (sourceHost: string, targetHost: string) => void;
 		onClearSelection?: () => void;
-		onReady?: (exportFn: () => string | null) => void;
+		onReady?: (exportFn: () => Promise<string | null>) => void;
 	} = $props();
 
-	// グラフをPNG画像としてエクスポート
-	function exportGraphImage(): string | null {
+	// グラフをPNG画像としてエクスポート（凡例付き）
+	async function exportGraphImage(): Promise<string | null> {
 		if (!cy) return null;
 		try {
-			return cy.png({
+			const bgColor = '#130e26';
+			const scale = 2;
+
+			// Cytoscapeグラフを画像として取得
+			const graphDataUrl = cy.png({
 				output: 'base64uri',
-				// 宇宙空間背景と同じ深い紫色 (ベースグラデーションの中間色)
-				bg: '#130e26',
-				full: false, // 現在のビューをエクスポート
-				scale: 2,   // 高解像度
+				bg: bgColor,
+				full: false,
+				scale,
 				maxWidth: 2000,
 				maxHeight: 2000
+			});
+
+			// Canvas上でグラフと凡例を合成
+			const img = new Image();
+			img.src = graphDataUrl;
+
+			// 同期的に処理するため、canvasを直接作成
+			const canvas = document.createElement('canvas');
+			const ctx = canvas.getContext('2d');
+			if (!ctx) return graphDataUrl;
+
+			// コンテナサイズを基準にキャンバスサイズを決定
+			const graphWidth = container?.clientWidth ? container.clientWidth * scale : 1200;
+			const graphHeight = container?.clientHeight ? container.clientHeight * scale : 800;
+			const legendHeight = 80 * scale;
+			const padding = 16 * scale;
+
+			canvas.width = graphWidth;
+			canvas.height = graphHeight + legendHeight;
+
+			// 背景を塗りつぶし
+			ctx.fillStyle = bgColor;
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+			// グラフ画像を描画（同期的に処理）
+			// base64を直接描画するため、Image.onloadを待つ必要がある
+			return new Promise<string | null>((resolve) => {
+				img.onload = () => {
+					// グラフを上部に描画
+					ctx.drawImage(img, 0, 0, graphWidth, graphHeight);
+
+					// 凡例の背景
+					const legendY = graphHeight;
+					ctx.fillStyle = 'rgba(10, 10, 20, 0.85)';
+					ctx.fillRect(0, legendY, canvas.width, legendHeight);
+
+					// 凡例の上部ボーダー
+					ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+					ctx.lineWidth = 1 * scale;
+					ctx.beginPath();
+					ctx.moveTo(0, legendY);
+					ctx.lineTo(canvas.width, legendY);
+					ctx.stroke();
+
+					// フォント設定
+					const fontSize = 11 * scale;
+					const smallFontSize = 10 * scale;
+					ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+					ctx.textBaseline = 'middle';
+
+					// 凡例アイテムの描画
+					const items = [
+						{ type: 'dot', color: '#86b300', key: '色', val: 'ソフトウェア' },
+						{ type: 'size', color: '#86b300', key: '大きさ', val: 'ユーザー数' },
+						{ type: 'line', color: 'rgba(255,255,255,0.4)', key: '線の太さ', val: 'やり取り量' },
+						{ type: 'center', color: 'rgba(255,255,255,0.8)', key: '中心', val: '繋がり多' },
+						{ type: 'dashed', color: '#f87171', key: '赤破線', val: 'ブロック' },
+						{ type: 'dashed', color: '#fb923c', key: '橙破線', val: '配信停止' },
+						{ type: 'dotted', color: '#60a5fa', key: '青点線', val: '疎通OK' },
+						{ type: 'dotted', color: '#a78bfa', key: '紫点線', val: '疎通NG' },
+						{ type: 'emoji', emoji: '🔒', val: '連合非公開' }
+					];
+
+					let x = padding;
+					const y = legendY + legendHeight / 2;
+					const itemGap = 24 * scale;
+
+					for (const item of items) {
+						// アイコン/線を描画
+						if (item.type === 'dot') {
+							ctx.beginPath();
+							ctx.arc(x + 6 * scale, y, 5 * scale, 0, Math.PI * 2);
+							ctx.fillStyle = item.color!;
+							ctx.fill();
+							x += 16 * scale;
+						} else if (item.type === 'size') {
+							// 大小のドット
+							ctx.beginPath();
+							ctx.arc(x + 4 * scale, y, 3 * scale, 0, Math.PI * 2);
+							ctx.fillStyle = 'rgba(255,255,255,0.5)';
+							ctx.fill();
+							ctx.beginPath();
+							ctx.arc(x + 12 * scale, y, 5 * scale, 0, Math.PI * 2);
+							ctx.fillStyle = 'rgba(255,255,255,0.7)';
+							ctx.fill();
+							x += 20 * scale;
+						} else if (item.type === 'line') {
+							ctx.strokeStyle = item.color!;
+							ctx.lineWidth = 2 * scale;
+							ctx.beginPath();
+							ctx.moveTo(x, y);
+							ctx.lineTo(x + 16 * scale, y);
+							ctx.stroke();
+							x += 20 * scale;
+						} else if (item.type === 'center') {
+							ctx.beginPath();
+							ctx.arc(x + 6 * scale, y, 5 * scale, 0, Math.PI * 2);
+							const gradient = ctx.createRadialGradient(
+								x + 6 * scale, y, 0,
+								x + 6 * scale, y, 5 * scale
+							);
+							gradient.addColorStop(0, 'rgba(255,255,255,0.9)');
+							gradient.addColorStop(1, 'rgba(255,255,255,0.3)');
+							ctx.fillStyle = gradient;
+							ctx.fill();
+							x += 16 * scale;
+						} else if (item.type === 'dashed') {
+							ctx.strokeStyle = item.color!;
+							ctx.lineWidth = 2 * scale;
+							ctx.setLineDash([4 * scale, 2 * scale]);
+							ctx.beginPath();
+							ctx.moveTo(x, y);
+							ctx.lineTo(x + 16 * scale, y);
+							ctx.stroke();
+							ctx.setLineDash([]);
+							x += 20 * scale;
+						} else if (item.type === 'dotted') {
+							ctx.strokeStyle = item.color!;
+							ctx.lineWidth = 2 * scale;
+							ctx.setLineDash([2 * scale, 3 * scale]);
+							ctx.beginPath();
+							ctx.moveTo(x, y);
+							ctx.lineTo(x + 16 * scale, y);
+							ctx.stroke();
+							ctx.setLineDash([]);
+							x += 20 * scale;
+						} else if (item.type === 'emoji') {
+							ctx.font = `${fontSize}px serif`;
+							ctx.fillStyle = '#fff';
+							ctx.fillText(item.emoji!, x, y);
+							x += 18 * scale;
+							ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+						}
+
+						// テキストを描画
+						if (item.key) {
+							ctx.fillStyle = 'rgba(255,255,255,0.6)';
+							ctx.font = `${smallFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+							ctx.fillText(item.key, x, y);
+							x += ctx.measureText(item.key).width + 4 * scale;
+						}
+
+						ctx.fillStyle = 'rgba(255,255,255,0.85)';
+						ctx.font = `${smallFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+						ctx.fillText(item.val, x, y);
+						x += ctx.measureText(item.val).width + itemGap;
+					}
+
+					resolve(canvas.toDataURL('image/png'));
+				};
+
+				img.onerror = () => {
+					// 画像読み込み失敗時は元の画像を返す
+					resolve(graphDataUrl);
+				};
 			});
 		} catch (error) {
 			console.error('Failed to export graph image:', error);

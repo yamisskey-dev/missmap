@@ -611,9 +611,9 @@
 	}
 
 	// グラフ画像エクスポート機能
-	let exportGraphFn = $state<(() => string | null) | null>(null);
+	let exportGraphFn = $state<(() => Promise<string | null>) | null>(null);
 
-	function handleGraphReady(exportFn: () => string | null) {
+	function handleGraphReady(exportFn: () => Promise<string | null>) {
 		exportGraphFn = exportFn;
 	}
 
@@ -640,7 +640,7 @@
 
 		try {
 			// グラフを画像としてエクスポート
-			const imageBase64 = exportGraphFn();
+			const imageBase64 = await exportGraphFn();
 
 			// 共有テキストを作成
 			const shareUrl = browser ? window.location.href : '';
