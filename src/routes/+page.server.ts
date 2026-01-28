@@ -280,7 +280,7 @@ export const load: PageServerLoad = async ({ fetch }) => {
 		return {
 			servers: japaneseServers,
 			federations,
-			defaultViewpoints: filteredTopByDru15.slice(0, 5), // デフォルトはdru15の上位5件
+			defaultViewpoints: filteredTopByDru15.slice(0, 3), // デフォルトはdru15の上位3件
 			topByDru15: filteredTopByDru15,
 			topByNpd15: filteredTopByNpd15,
 			topByUsers: filteredTopByUsers
