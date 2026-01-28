@@ -132,6 +132,15 @@
 		return num.toString();
 	}
 
+	// アクティブユーザー数をフォーマット（小数点は丸める）
+	function formatActiveUsers(num: number | null): string {
+		if (num === null) return '-';
+		const rounded = Math.round(num);
+		if (rounded >= 1000000) return `${(rounded / 1000000).toFixed(1)}M`;
+		if (rounded >= 1000) return `${(rounded / 1000).toFixed(1)}K`;
+		return rounded.toString();
+	}
+
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
 			onClose();
@@ -205,6 +214,12 @@
 					<span class="stat-value">{formatNumber(server.notesCount)}</span>
 					<span class="stat-label">ノート</span>
 				</div>
+				{#if server.dru15 !== null && server.dru15 !== undefined}
+					<div class="stat">
+						<span class="stat-value">{formatActiveUsers(server.dru15)}</span>
+						<span class="stat-label">アクティブ</span>
+					</div>
+				{/if}
 			</div>
 
 			<!-- ソフトウェア & 登録状況 -->
@@ -464,7 +479,7 @@
 	.stats-row {
 		display: flex;
 		justify-content: center;
-		gap: 2rem;
+		gap: 1.25rem;
 		padding: 0.75rem 0;
 		margin: 0 -0.5rem;
 		background: var(--glass-bg-subtle);
