@@ -63,7 +63,8 @@
 		try {
 			return cy.png({
 				output: 'base64uri',
-				bg: '#0a0a0f',
+				// 宇宙空間背景と同じ深い紫色 (ベースグラデーションの中間色)
+				bg: '#130e26',
 				full: false, // 現在のビューをエクスポート
 				scale: 2,   // 高解像度
 				maxWidth: 2000,
