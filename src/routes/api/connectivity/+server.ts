@@ -25,7 +25,10 @@ async function checkConnectivity(
 		// sourceサーバーがtargetサーバーの情報を持っているか確認
 		const res = await fetch(`https://${source}/api/federation/show-instance`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: {
+				'Content-Type': 'application/json',
+				'User-Agent': 'Missmap/1.0 (https://missmap.pages.dev)'
+			},
 			body: JSON.stringify({ host: target }),
 			signal: controller.signal
 		});
