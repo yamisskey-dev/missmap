@@ -8,15 +8,7 @@
 	let cytoscapePromise: Promise<typeof import('cytoscape').default> | null = null;
 	async function getCytoscape() {
 		if (!cytoscapePromise) {
-			cytoscapePromise = (async () => {
-				const [cytoscape, fcose] = await Promise.all([
-					import('cytoscape').then(m => m.default),
-					import('cytoscape-fcose').then(m => m.default)
-				]);
-				// fcoseレイアウトを登録
-				cytoscape.use(fcose);
-				return cytoscape;
-			})();
+			cytoscapePromise = import('cytoscape').then(m => m.default);
 		}
 		return cytoscapePromise;
 	}
@@ -99,6 +91,7 @@
 	}>>(new Map());
 	let isDestroying = false;
 	let isInitialized = false;
+	let isLayoutRunning = false;
 	let focusHighlightTimeout: ReturnType<typeof setTimeout> | null = null;
 	let currentFocusedNode: import('cytoscape').NodeSingular | null = null;
 
@@ -124,6 +117,7 @@
 	function destroyCy() {
 		if (cy && !isDestroying) {
 			isDestroying = true;
+			isLayoutRunning = false; // レイアウトフラグもリセット
 			const cyInstance = cy;
 			cy = null; // 先にnullにして他の処理がアクセスしないようにする
 			try {
@@ -591,6 +585,13 @@
 			return;
 		}
 
+		// レイアウト計算中は再実行を防ぐ
+		if (isLayoutRunning) {
+			console.debug('Layout already running, skipping initGraph');
+			return;
+		}
+		isLayoutRunning = true;
+
 		const cytoscape = await getCytoscape();
 
 		// 既知のサーバーホスト
@@ -971,54 +972,34 @@
 				}
 			],
 			layout: {
-				name: 'fcose',
+				name: 'cose',
 				animate: true,
 				animationDuration: 800,
 				animationEasing: 'ease-out-cubic',
-				// パフォーマンス最適化: defaultに変更（proofは重すぎる）
-				quality: 'default',
-				// ランダム初期配置（重要）
+				// ランダム初期配置
 				randomize: true,
 				// パディング
 				padding: 50,
-				// ノードサイズに応じた反発力（大きいノードは強く反発）
+				// ノードサイズに応じた反発力
 				nodeRepulsion: (node: { data: (key: string) => number }) => {
 					const size = node.data('size') || 30;
-					// サイズに比例した反発力（4000〜16000 - クラスター間分離強化）
-					return 4000 + (size / 70) * 12000;
+					return 30000 + (size / 70) * 40000;
 				},
-				// エッジの理想的な長さ（関係の強さに基づく - 極端な差をつける）
+				// エッジの理想的な長さ（関係の強さに基づく）
 				idealEdgeLength: (edge: { data: (key: string) => number }) => {
 					const weight = edge.data('weight') || 1;
-					// weight: 1-30 → length: 280-10
-					// 関係が強いほど大幅に短く（クラスタリング強化）
+					// weight: 1-30 → length: 200-30
 					const normalized = Math.min(1, (weight - 1) / 29);
-					// より強い非線形スケール（弱い関係をより離す、強い関係をより近く）
-					const curve = Math.pow(normalized, 0.4);
-					return 280 - curve * 270;
+					return 200 - normalized * 170;
 				},
-				// エッジの弾性（高いほどエッジ長に忠実）
-				edgeElasticity: (edge: { data: (key: string) => number }) => {
-					const weight = edge.data('weight') || 1;
-					// 関係が強いほど弾性を高く（より強く引き寄せる）
-					const normalized = Math.min(1, (weight - 1) / 29);
-					return 0.25 + normalized * 0.7;
-				},
-				// 重力設定（中心に集める力を強化）
-				gravity: 0.15,
-				gravityRange: 3.5,
-				// 重力の中心（グラフの重心）
-				gravityCompound: 1.2,
-				// コンポーネント間の配置
-				tile: true,
-				tilingPaddingVertical: 25,
-				tilingPaddingHorizontal: 25,
-				// イテレーション数を削減（パフォーマンス最適化）
-				numIter: Math.min(2500, Math.max(1500, nodes.length * 8)),
-				// ラベルを考慮したノードサイズ
-				nodeDimensionsIncludeLabels: false,
+				// 重力設定
+				gravity: 0.25,
+				// イテレーション数
+				numIter: 1000,
 				// フィット設定
-				fit: true
+				fit: true,
+				// ノード重複を避ける
+				nodeOverlap: 20
 			},
 			// インタラクティブ設定
 			minZoom: 0.3,
@@ -1423,14 +1404,15 @@
 		container.addEventListener('touchend', handlePanEnd);
 
 		cy.on('layoutstop', () => {
-			// レイアウト完了後は常に全体表示（力学モデルの結果を尊重）
+			// レイアウト計算完了フラグをリセット
+			isLayoutRunning = false;
+
+			// レイアウト完了後は全体表示
 			if (cy) {
-				// 少し引いた状態から始めてズームイン（ワープイン効果）
-				const currentZoom = cy.zoom();
-				cy.zoom(currentZoom * 0.5);
+				// シンプルなフィットアニメーション
 				cy.animate({
 					fit: { eles: cy.elements(), padding: 50 },
-					duration: 800,
+					duration: 400,
 					easing: 'ease-out-cubic'
 				});
 			}
