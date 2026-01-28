@@ -124,7 +124,7 @@
 				</div>
 			{:else if authState.isLoggedIn && authState.user}
 				<div class="user-card">
-					<div class="user-info">
+					<button class="user-info-btn" onclick={() => onFocusViewpoint?.(authState.user!.host)} title="マイサーバーにフォーカス">
 						{#if authState.user.avatarUrl}
 							<img src={authState.user.avatarUrl} alt="" class="avatar-small" />
 						{:else}
@@ -139,7 +139,11 @@
 							<span class="user-handle">@{authState.user.username}</span>
 							<span class="user-host">@{authState.user.host}</span>
 						</div>
-					</div>
+						<svg class="focus-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<circle cx="12" cy="12" r="10" />
+							<circle cx="12" cy="12" r="3" />
+						</svg>
+					</button>
 					<button class="logout-btn" onclick={handleLogout} title="ログアウト">
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -674,12 +678,37 @@
 		box-shadow: 0 0 12px rgba(134, 179, 0, 0.1);
 	}
 
-	.user-info {
+	.user-info-btn {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
 		min-width: 0;
 		flex: 1;
+		padding: 0;
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		text-align: left;
+		transition: all var(--transition-fast);
+		border-radius: var(--radius-sm);
+	}
+
+	.user-info-btn:hover {
+		background: rgba(255, 215, 0, 0.08);
+	}
+
+	.user-info-btn:hover .focus-icon {
+		opacity: 1;
+		color: #ffd700;
+	}
+
+	.focus-icon {
+		width: 16px;
+		height: 16px;
+		color: var(--fg-muted);
+		opacity: 0.4;
+		flex-shrink: 0;
+		transition: all var(--transition-fast);
 	}
 
 	.avatar-small {

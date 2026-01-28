@@ -35,6 +35,7 @@
 		focusHost = '',
 		viewpointServers = [],
 		privateServers = new Set<string>(),
+		userHost = '',
 		edgeVisibility = DEFAULT_EDGE_VISIBILITY,
 		initialSelection = null,
 		onSelectServer,
@@ -46,6 +47,7 @@
 		focusHost?: string;
 		viewpointServers?: string[];
 		privateServers?: Set<string>;
+		userHost?: string;
 		edgeVisibility?: EdgeVisibility;
 		initialSelection?: { type: 'node' | 'edge'; value: string } | null;
 		onSelectServer?: (server: ServerInfo | null, position: { x: number; y: number } | null) => void;
@@ -831,8 +833,14 @@
 
 			const isViewpoint = viewpointServers.includes(host);
 			const isPrivate = privateServers.has(host);
-			// 非公開サーバーには鍵マークを追加
-			const displayLabel = isPrivate ? `🔒 ${label}` : label;
+			const isUserHome = userHost === host;
+			// 非公開サーバーには鍵マークを追加、ユーザーのホームには星マークを追加
+			let displayLabel = label;
+			if (isUserHome) {
+				displayLabel = `⭐ ${label}`;
+			} else if (isPrivate) {
+				displayLabel = `🔒 ${label}`;
+			}
 			nodes.push({
 				data: {
 					id: host,
@@ -843,7 +851,8 @@
 					iconUrl,
 					hasIcon,
 					isViewpoint,
-					isPrivate
+					isPrivate,
+					isUserHome
 				}
 			});
 		}
@@ -916,6 +925,17 @@
 						'border-width': 3,
 						'border-color': '#86b300',
 						'border-style': 'solid'
+					}
+				},
+				{
+					// ユーザーのホームサーバー: ゴールドの特別なスタイル
+					selector: 'node[?isUserHome]',
+					style: {
+						'border-width': 4,
+						'border-color': '#ffd700',
+						'border-style': 'double',
+						'overlay-opacity': 0.15,
+						'overlay-color': '#ffd700'
 					}
 				},
 				{

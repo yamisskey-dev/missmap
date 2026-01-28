@@ -774,6 +774,7 @@
 							focusHost={focusHost}
 							viewpointServers={settings.viewpointServers}
 							{privateServers}
+							userHost={authState.user?.host ?? ''}
 							edgeVisibility={edgeVisibility()}
 							initialSelection={selectedItem}
 							onSelectServer={handleSelectServer}
@@ -848,6 +849,7 @@
 						focusHost={focusHost}
 						viewpointServers={settings.viewpointServers}
 						{privateServers}
+						userHost={authState.user?.host ?? ''}
 						edgeVisibility={edgeVisibility()}
 						initialSelection={selectedItem}
 						onSelectServer={handleSelectServer}
