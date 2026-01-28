@@ -691,24 +691,6 @@
 		}
 	}
 
-	// サーバーの連合サーバー数を計算
-	function getFederatedCount(host: string): number {
-		const federations = displayFederations();
-		const connectedHosts = new Set<string>();
-
-		for (const fed of federations) {
-			// このサーバーがsourceまたはtargetの場合、相手側をカウント
-			if (fed.sourceHost === host) {
-				connectedHosts.add(fed.targetHost);
-			}
-			if (fed.targetHost === host) {
-				connectedHosts.add(fed.sourceHost);
-			}
-		}
-
-		return connectedHosts.size;
-	}
-
 	// グラフでサーバーを選択した時のポップアップ表示用
 	let selectedServerInfo = $state<ServerInfo | null>(null);
 	let popupPosition = $state<{ x: number; y: number } | null>(null);
@@ -1003,7 +985,6 @@
 	onToggleViewpoint={handleToggleViewpoint}
 	onToggleBookmark={handleToggleBookmark}
 	viewpointServers={settings.viewpointServers}
-	federatedCount={selectedServerInfo ? getFederatedCount(selectedServerInfo.host) : 0}
 />
 
 <!-- Login Modal -->

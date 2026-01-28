@@ -11,8 +11,7 @@
 		isBookmarked = false,
 		onToggleViewpoint,
 		onToggleBookmark,
-		viewpointServers = [],
-		federatedCount = 0
+		viewpointServers = []
 	}: {
 		server: ServerInfo | null;
 		position: { x: number; y: number } | null;
@@ -22,7 +21,6 @@
 		onToggleViewpoint?: (host: string, add: boolean) => void;
 		onToggleBookmark?: (host: string, add: boolean) => void;
 		viewpointServers?: string[];
-		federatedCount?: number;
 	} = $props();
 
 	// 共有用URLを生成
@@ -207,12 +205,6 @@
 					<span class="stat-value">{formatNumber(server.notesCount)}</span>
 					<span class="stat-label">ノート</span>
 				</div>
-				{#if federatedCount > 0}
-					<div class="stat highlight">
-						<span class="stat-value">{formatNumber(federatedCount)}</span>
-						<span class="stat-label">連合</span>
-					</div>
-				{/if}
 			</div>
 
 			<!-- ソフトウェア & 登録状況 -->
