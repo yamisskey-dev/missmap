@@ -24,9 +24,22 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		// 画像がある場合はドライブにアップロード
 		if (imageBase64) {
-			// base64データURLからBlobを作成
-			const base64Data = imageBase64.replace(/^data:image\/png;base64,/, '');
-			const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+			// base64データURLからBlobを作成（Cloudflare Workers互換）
+			const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+
+			// Cloudflare Workers互換のbase64デコード
+			let binaryData: Uint8Array;
+			try {
+				const binaryString = atob(base64Data);
+				binaryData = new Uint8Array(binaryString.length);
+				for (let i = 0; i < binaryString.length; i++) {
+					binaryData[i] = binaryString.charCodeAt(i);
+				}
+			} catch (decodeError) {
+				console.error('Base64 decode failed:', decodeError);
+				return json({ error: 'Invalid image data' }, { status: 400 });
+			}
+
 			const blob = new Blob([binaryData], { type: 'image/png' });
 
 			// Misskeyのドライブにアップロード

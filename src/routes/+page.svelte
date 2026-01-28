@@ -641,41 +641,52 @@
 			const viewpointText = settings.viewpointServers.length > 0
 				? `視点: ${settings.viewpointServers.join(', ')}`
 				: '';
-			const text = `🗺️ Missmap - Fediverse連合マップ\n\n${viewpointText}\n\n${shareUrl}\n\n#Missmap #Fediverse`;
+
+			const host = authState.user.host;
+			let text = `🗺️ Missmap - Fediverse連合マップ\n\n${viewpointText}\n\n${shareUrl}\n\n#Missmap #Fediverse`;
+			let uploadSuccess = false;
 
 			// 画像をドライブにアップロード
-			const res = await fetch('/api/share', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					imageBase64,
-					uploadOnly: true
-				})
-			});
+			if (imageBase64) {
+				try {
+					const res = await fetch('/api/share', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							imageBase64,
+							uploadOnly: true
+						})
+					});
 
-			let fileIds: string[] = [];
-			if (res.ok) {
-				const result = await res.json();
-				if (result.fileId) {
-					fileIds = [result.fileId];
+					if (res.ok) {
+						const result = await res.json();
+						if (result.fileId) {
+							uploadSuccess = true;
+							// ドライブにアップロード成功のメッセージを追加
+							text = `🗺️ Missmap - Fediverse連合マップ\n\n${viewpointText}\n\n${shareUrl}\n\n📷 マップ画像をドライブにアップロードしました。添付してください！\n\n#Missmap #Fediverse`;
+						}
+					}
+				} catch (uploadError) {
+					console.error('Image upload failed:', uploadError);
+					// アップロード失敗しても投稿画面は開く
 				}
 			}
 
-			// Misskeyの投稿画面を開く
-			const host = authState.user.host;
+			// Misskeyの投稿画面を開く（/share はfileIdsをサポートしていないため、テキストのみ）
 			const shareParams = new URLSearchParams();
 			shareParams.set('text', text);
-			if (fileIds.length > 0) {
-				shareParams.set('fileIds', fileIds.join(','));
-			}
 
 			const composeUrl = `https://${host}/share?${shareParams.toString()}`;
 			window.open(composeUrl, '_blank', 'noopener,noreferrer');
 
-			shareSuccess = { message: '投稿画面を開きました' };
+			if (uploadSuccess) {
+				shareSuccess = { message: '画像をドライブに保存しました。投稿画面でドライブから添付してください' };
+			} else {
+				shareSuccess = { message: '投稿画面を開きました' };
+			}
 			setTimeout(() => {
 				shareSuccess = null;
-			}, 3000);
+			}, 5000);
 		} catch (error) {
 			shareError = error instanceof Error ? error.message : '共有に失敗しました';
 			setTimeout(() => {
