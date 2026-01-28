@@ -56,7 +56,7 @@
 	} = $props();
 
 	let container: HTMLDivElement;
-	let cy: import('cytoscape').Core | null = null;
+	let cy = $state<import('cytoscape').Core | null>(null);
 
 	// ツールチップ状態（ノード用とエッジ用）
 	let tooltip = $state<{
@@ -428,13 +428,22 @@
 
 	// focusHostが変更されたらカメラ移動＋一時ハイライト
 	$effect(() => {
-		const focusChanged = focusHost !== prevFocusHost;
+		// focusHostとcyを読み取ることで依存関係を作成
+		const currentFocus = focusHost;
+		const cyInstance = cy;
 
-		if (focusChanged && cy && focusHost) {
-			prevFocusHost = focusHost;
-			focusOnNode(focusHost);
-		} else if (focusChanged) {
-			prevFocusHost = focusHost;
+		// cyが初期化されていない、またはfocusHostが空の場合はスキップ
+		if (!cyInstance || !currentFocus) {
+			return;
+		}
+
+		// 同じホストでも再フォーカス可能にするため、prevFocusHostが空の場合も実行
+		if (currentFocus !== prevFocusHost || prevFocusHost === '') {
+			prevFocusHost = currentFocus;
+			// 少し遅延を入れてレイアウト完了を待つ
+			setTimeout(() => {
+				focusOnNode(currentFocus);
+			}, 150);
 		}
 	});
 

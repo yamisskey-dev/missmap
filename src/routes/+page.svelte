@@ -532,9 +532,24 @@
 		}
 	}
 
-	// 視点サーバーにフォーカス
-	function handleFocusViewpoint(host: string) {
-		focusHost = host;
+	// 視点サーバーにフォーカス（グラフにない場合は自動追加）
+	async function handleFocusViewpoint(host: string) {
+		// グラフに表示されているサーバーを確認
+		const displayedHosts = new Set(displayServers().map((s: ServerInfo) => s.host));
+
+		// サーバーがグラフにない場合は視点サーバーとして追加
+		if (!displayedHosts.has(host) && !settings.viewpointServers.includes(host)) {
+			await handleAddViewpoint(host);
+			settings.viewpointServers = [...settings.viewpointServers, host];
+		}
+
+		// フォーカスを設定（少し遅延を入れてグラフ更新を待つ）
+		setTimeout(() => {
+			focusHost = '';
+			setTimeout(() => {
+				focusHost = host;
+			}, 50);
+		}, 100);
 	}
 
 	// 選定基準変更時の処理（SSRで全データ取得済みのため即時切り替え）
