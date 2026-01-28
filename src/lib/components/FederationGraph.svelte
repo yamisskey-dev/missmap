@@ -58,11 +58,12 @@
 	} = $props();
 
 	// グラフをPNG画像としてエクスポート（凡例付き）
+	// Cloudflare Workers互換のため、画像サイズを制限
 	async function exportGraphImage(): Promise<string | null> {
 		if (!cy) return null;
 		try {
 			const bgColor = '#130e26';
-			const scale = 2;
+			const scale = 1; // CF Workers対応: サイズ削減
 
 			// Cytoscapeグラフを画像として取得
 			const graphDataUrl = cy.png({
@@ -70,8 +71,8 @@
 				bg: bgColor,
 				full: false,
 				scale,
-				maxWidth: 2000,
-				maxHeight: 2000
+				maxWidth: 1200, // CF Workers対応: サイズ削減
+				maxHeight: 900  // CF Workers対応: サイズ削減
 			});
 
 			// Canvas上でグラフと凡例を合成
@@ -220,7 +221,8 @@
 						x += ctx.measureText(item.val).width + itemGap;
 					}
 
-					resolve(canvas.toDataURL('image/png'));
+					// JPEG形式で圧縮（CF Workers対応: サイズ削減）
+					resolve(canvas.toDataURL('image/jpeg', 0.85));
 				};
 
 				img.onerror = () => {

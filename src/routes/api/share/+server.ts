@@ -24,7 +24,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		// 画像がある場合はドライブにアップロード
 		if (imageBase64) {
-			// base64データURLからBlobを作成
+			// base64データURLからBlobを作成（JPEG/PNG両対応）
+			const mimeMatch = imageBase64.match(/^data:(image\/[a-z]+);base64,/);
+			const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+			const extension = mimeType === 'image/png' ? 'png' : 'jpg';
 			const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
 
 			// base64をバイナリに変換（Cloudflare Workers互換）
@@ -37,7 +40,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 					bytes[i] = binaryString.charCodeAt(i);
 				}
 				// ArrayBufferからBlobを作成（CF Workers互換性向上）
-				blob = new Blob([bytes.buffer], { type: 'image/png' });
+				blob = new Blob([bytes.buffer], { type: mimeType });
 			} catch (decodeError) {
 				console.error('Base64 decode failed:', decodeError);
 				return json({ error: 'Invalid image data' }, { status: 400 });
@@ -46,8 +49,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			// Misskeyのドライブにアップロード
 			const formData = new FormData();
 			formData.append('i', token);
-			formData.append('file', blob, 'missmap.png');
-			formData.append('name', `missmap-${Date.now()}.png`);
+			formData.append('file', blob, `missmap.${extension}`);
+			formData.append('name', `missmap-${Date.now()}.${extension}`);
 			formData.append('comment', 'Missmap Federation Graph');
 
 			const uploadRes = await fetch(`https://${host}/api/drive/files/create`, {
@@ -76,7 +79,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			});
 		}
 
-		// ノートを作成（ホーム公開 = フォロワーに公開、連合しない）
+		// ノートを作成
 		const noteBody: Record<string, unknown> = {
 			i: token,
 			text,
