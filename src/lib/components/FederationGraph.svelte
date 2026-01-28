@@ -1103,9 +1103,8 @@
 			],
 			layout: {
 				name: 'cose',
-				animate: true,
-				animationDuration: 1200,
-				animationEasing: 'ease-out-cubic',
+				// アニメーション無効化（ローディング画面表示中に計算を完了）
+				animate: false,
 				// ランダム初期配置
 				randomize: true,
 				// パディング
@@ -1744,6 +1743,19 @@
 		</div>
 	{/if}
 
+	<!-- ローディングオーバーレイ -->
+	{#if isLayoutRunning}
+		<div class="loading-overlay">
+			<div class="loading-content">
+				<div class="loading-spinner"></div>
+				<div class="loading-text">マップを描画中...</div>
+				<div class="loading-bar">
+					<div class="loading-bar-fill"></div>
+				</div>
+			</div>
+		</div>
+	{/if}
+
 	<!-- 宇宙空間の星（パララックス効果付き） -->
 	<div class="stars-layer" bind:this={starsLayer} aria-hidden="true">
 		<!-- 通常の星（パフォーマンス最適化: 60→35に削減） -->
@@ -1780,7 +1792,7 @@
 			></div>
 		{/each}
 	</div>
-	<div class="graph" bind:this={container}></div>
+	<div class="graph" class:hidden={isLayoutRunning} bind:this={container}></div>
 
 	<!-- Graph controls overlay -->
 	<div class="graph-controls">
@@ -1835,6 +1847,89 @@
 </div>
 
 <style>
+	/* ローディングオーバーレイ */
+	.loading-overlay {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: rgba(10, 10, 20, 0.95);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+		z-index: 200;
+	}
+
+	.loading-content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1rem;
+	}
+
+	.loading-spinner {
+		width: 48px;
+		height: 48px;
+		border: 3px solid rgba(134, 179, 0, 0.2);
+		border-top-color: var(--accent-400, #86b300);
+		border-radius: 50%;
+		animation: spin 1s linear infinite;
+	}
+
+	.loading-text {
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: rgba(255, 255, 255, 0.8);
+		letter-spacing: 0.02em;
+	}
+
+	.loading-bar {
+		width: 200px;
+		height: 4px;
+		background: rgba(255, 255, 255, 0.1);
+		border-radius: 2px;
+		overflow: hidden;
+	}
+
+	.loading-bar-fill {
+		height: 100%;
+		width: 30%;
+		background: linear-gradient(90deg, var(--accent-500, #6a8f00), var(--accent-400, #86b300));
+		border-radius: 2px;
+		animation: loading-bar 1.5s ease-in-out infinite;
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	@keyframes loading-bar {
+		0% {
+			width: 0%;
+			margin-left: 0%;
+		}
+		50% {
+			width: 60%;
+			margin-left: 20%;
+		}
+		100% {
+			width: 0%;
+			margin-left: 100%;
+		}
+	}
+
+	/* グラフ表示/非表示 */
+	.graph {
+		transition: opacity 0.4s ease-out;
+	}
+
+	.graph.hidden {
+		opacity: 0;
+		pointer-events: none;
+	}
+
 	.graph-wrapper {
 		position: relative;
 		flex: 1;
