@@ -75,11 +75,11 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			});
 		}
 
-		// ノートを作成
+		// ノートを作成（ホーム公開 = フォロワーに公開、連合しない）
 		const noteBody: Record<string, unknown> = {
 			i: token,
 			text,
-			visibility: 'public'
+			visibility: 'home'
 		};
 
 		if (fileId) {
