@@ -8,19 +8,41 @@ const APP_DESCRIPTION = 'Fediverse連合マップ - あなたの宇宙を探索�
 const PERMISSIONS = ['read:account', 'read:federation'];
 
 // インスタンスがMisskey系かどうかを確認
-async function isMisskeyInstance(host: string): Promise<boolean> {
+async function isMisskeyInstance(host: string): Promise<{ isMisskey: boolean; error?: string }> {
 	try {
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
+
 		const res = await fetch(`https://${host}/api/meta`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({})
+			body: JSON.stringify({}),
+			signal: controller.signal
 		});
-		if (!res.ok) return false;
+
+		clearTimeout(timeoutId);
+
+		if (!res.ok) {
+			console.log(`[Login] /api/meta returned ${res.status} for ${host}`);
+			return { isMisskey: false, error: `サーバーからエラー応答 (${res.status})` };
+		}
+
 		const data = await res.json();
 		// Misskey系ならversionが存在する
-		return !!data.version;
-	} catch {
-		return false;
+		if (data.version) {
+			console.log(`[Login] Detected Misskey ${data.version} on ${host}`);
+			return { isMisskey: true };
+		}
+
+		return { isMisskey: false, error: 'Misskey APIが見つかりません' };
+	} catch (e) {
+		const error = e as Error;
+		if (error.name === 'AbortError') {
+			console.log(`[Login] Timeout checking ${host}`);
+			return { isMisskey: false, error: 'サーバーへの接続がタイムアウトしました' };
+		}
+		console.log(`[Login] Error checking ${host}:`, error.message);
+		return { isMisskey: false, error: `接続エラー: ${error.message}` };
 	}
 }
 
@@ -41,10 +63,10 @@ export const POST: RequestHandler = async ({ request, url }) => {
 
 	try {
 		// Misskey系インスタンスかチェック
-		const isMisskey = await isMisskeyInstance(host);
-		if (!isMisskey) {
+		const checkResult = await isMisskeyInstance(host);
+		if (!checkResult.isMisskey) {
 			return json(
-				{ error: 'このサーバーはMisskey系ではないようです' },
+				{ error: checkResult.error || 'このサーバーはMisskey系ではないようです' },
 				{ status: 400 }
 			);
 		}
