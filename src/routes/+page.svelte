@@ -643,11 +643,17 @@
 			const imageBase64 = await exportGraphFn();
 
 			// 共有テキストを作成
-			const shareUrl = browser ? window.location.href : '';
-			const viewpointText = settings.viewpointServers.length > 0
-				? `視点: ${settings.viewpointServers.join(', ')}`
+			// 視点サーバーはURLとして記載（Misskeyでリンクになる）
+			const viewpointUrls = settings.viewpointServers.map(host => `https://${host}`);
+			const viewpointText = viewpointUrls.length > 0
+				? `視点: ${viewpointUrls.join(', ')}`
 				: '';
-			const text = `🗺️ Missmap - Misskey連合マップ\n\n${viewpointText}\n\n${shareUrl}\n\n#Missmap #Fediverse`;
+			// マップURLも視点サーバー付きで構築
+			const mapUrl = new URL(browser ? window.location.origin : 'https://missmap.pages.dev');
+			for (const vp of settings.viewpointServers) {
+				mapUrl.searchParams.append('from', vp);
+			}
+			const text = `🗺️ Missmap - Misskey連合マップ\n\n${viewpointText}\n\n${mapUrl.toString()}\n\n#Missmap #Fediverse`;
 
 			// APIを通じて直接投稿（画像付き）
 			const res = await fetch('/api/share', {
