@@ -136,12 +136,34 @@
 	// viewportイベントのスロットリング用
 	let viewportThrottleId: number | null = null;
 
+	// initGraphのデバウンス用
+	let initGraphTimeoutId: ReturnType<typeof setTimeout> | null = null;
+	const INIT_GRAPH_DEBOUNCE_MS = 100;
+
+	// checkViewpointConnectivityのデバウンス用
+	let connectivityCheckTimeoutId: ReturnType<typeof setTimeout> | null = null;
+	const CONNECTIVITY_CHECK_DEBOUNCE_MS = 300;
+
+	// コンテナイベントリスナーのクリーンアップ用
+	let containerListenerCleanups: Array<() => void> = [];
+
 	function destroyCy() {
 		if (cy && !isDestroying) {
 			isDestroying = true;
 			isLayoutRunning = false; // レイアウトフラグもリセット
 			const cyInstance = cy;
 			cy = null; // 先にnullにして他の処理がアクセスしないようにする
+
+			// コンテナイベントリスナーをクリーンアップ
+			for (const cleanup of containerListenerCleanups) {
+				try {
+					cleanup();
+				} catch {
+					// クリーンアップ中のエラーは無視
+				}
+			}
+			containerListenerCleanups = [];
+
 			try {
 				// 全てのアニメーションとレイアウトを停止
 				cyInstance.stop(true, true);
@@ -367,8 +389,17 @@
 			if (focusHighlightTimeout) {
 				clearTimeout(focusHighlightTimeout);
 			}
+			if (focusTimeoutId) {
+				clearTimeout(focusTimeoutId);
+			}
 			if (viewportThrottleId !== null) {
 				cancelAnimationFrame(viewportThrottleId);
+			}
+			if (initGraphTimeoutId) {
+				clearTimeout(initGraphTimeoutId);
+			}
+			if (connectivityCheckTimeoutId) {
+				clearTimeout(connectivityCheckTimeoutId);
 			}
 			stopInertia();
 			destroyCy();
@@ -378,25 +409,49 @@
 	// 連合データの内容を表すハッシュを生成（配列の長さだけでなく中身も考慮）
 	let prevFederationHash = '';
 
+	// デバウンス付きinitGraph
+	function debouncedInitGraph() {
+		if (initGraphTimeoutId) {
+			clearTimeout(initGraphTimeoutId);
+		}
+		initGraphTimeoutId = setTimeout(() => {
+			initGraphTimeoutId = null;
+			destroyCy();
+			initGraph();
+		}, INIT_GRAPH_DEBOUNCE_MS);
+	}
+
+	// デバウンス付き疎通チェック
+	function debouncedCheckConnectivity() {
+		if (connectivityCheckTimeoutId) {
+			clearTimeout(connectivityCheckTimeoutId);
+		}
+		connectivityCheckTimeoutId = setTimeout(() => {
+			connectivityCheckTimeoutId = null;
+			checkViewpointConnectivity();
+		}, CONNECTIVITY_CHECK_DEBOUNCE_MS);
+	}
+
 	// サーバー/連合データが変更されたらグラフを再描画
 	// viewpointServers変更時はグラフ全体を再描画せず、ハイライトのみ更新
 	$effect(() => {
 		const serversChanged = servers.length !== prevServersLength;
 
 		// 連合データの内容ハッシュを生成（sourceHost-targetHostのセットで判定）
-		const currentFederationHash = federations
-			.map(f => `${f.sourceHost}-${f.targetHost}`)
-			.sort()
-			.join('|');
+		// パフォーマンス最適化: 配列を直接結合せず、Set経由で重複除去
+		const fedSet = new Set<string>();
+		for (const f of federations) {
+			fedSet.add(`${f.sourceHost}-${f.targetHost}`);
+		}
+		const currentFederationHash = Array.from(fedSet).sort().join('|');
 		const federationsChanged = currentFederationHash !== prevFederationHash;
 
 		if ((serversChanged || federationsChanged) && container) {
 			prevServersLength = servers.length;
 			prevFederationHash = currentFederationHash;
 
-			// データ変更時のみ再描画（視点サーバー変更では再描画しない）
-			destroyCy();
-			initGraph();
+			// データ変更時のみ再描画（デバウンス付き）
+			debouncedInitGraph();
 		}
 	});
 
@@ -437,14 +492,17 @@
 				});
 				cy.endBatch();
 
-				// 疎通チェックを再実行
-				checkViewpointConnectivity();
+				// 疎通チェックを再実行（デバウンス付き）
+				debouncedCheckConnectivity();
 			} catch (e) {
 				// グラフが破棄中の場合はエラーを無視
 				console.debug('Error updating viewpoint highlights:', e);
 			}
 		}
 	});
+
+	// focusHost用のタイムアウトID
+	let focusTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	// focusHostが変更されたらカメラ移動＋一時ハイライト
 	$effect(() => {
@@ -453,16 +511,25 @@
 		const cyInstance = cy;
 
 		// cyが初期化されていない、またはfocusHostが空の場合はスキップ
-		if (!cyInstance || !currentFocus) {
+		if (!cyInstance || !currentFocus || isDestroying) {
 			return;
 		}
 
 		// 同じホストでも再フォーカス可能にするため、prevFocusHostが空の場合も実行
 		if (currentFocus !== prevFocusHost || prevFocusHost === '') {
 			prevFocusHost = currentFocus;
+
+			// 前のフォーカスタイムアウトをキャンセル
+			if (focusTimeoutId) {
+				clearTimeout(focusTimeoutId);
+			}
+
 			// 少し遅延を入れてレイアウト完了を待つ
-			setTimeout(() => {
-				focusOnNode(currentFocus);
+			focusTimeoutId = setTimeout(() => {
+				focusTimeoutId = null;
+				if (!isDestroying) {
+					focusOnNode(currentFocus);
+				}
 			}, 150);
 		}
 	});
@@ -478,38 +545,34 @@
 			cy.startBatch();
 
 			// 通常の連合エッジの表示/非表示（isFederationがtrueでisBlocked/isSuspendedがfalse）
-			const federationEdges = cy.edges('[?isFederation][!isBlocked][!isSuspended]');
-			federationEdges.style('display', showFederation ? 'element' : 'none');
+			cy.edges('[?isFederation][!isBlocked][!isSuspended]').style('display', showFederation ? 'element' : 'none');
 
 			// ブロックエッジの表示/非表示
-			const blockedEdges = cy.edges('[?isBlocked][!isSuspended]');
-			blockedEdges.style('display', showBlocked ? 'element' : 'none');
+			cy.edges('[?isBlocked][!isSuspended]').style('display', showBlocked ? 'element' : 'none');
 
 			// 配信停止エッジの表示/非表示
-			const suspendedEdges = cy.edges('[?isSuspended]');
-			suspendedEdges.style('display', showSuspended ? 'element' : 'none');
+			cy.edges('[?isSuspended]').style('display', showSuspended ? 'element' : 'none');
 
-			// 疎通エッジの表示/非表示（OK/NGそれぞれ）
-			const connectivityEdges = cy.edges('[?isConnectivity]');
-			connectivityEdges.forEach((edge: import('cytoscape').EdgeSingular) => {
-				const isMutualOk = edge.data('isMutualOk');
-				if (isMutualOk) {
-					// 疎通OK（両方向OK）
-					edge.style('display', showConnectivityOk ? 'element' : 'none');
-				} else {
-					// 疎通NG（片方向のみ or 両方NG）
-					edge.style('display', showConnectivityNg ? 'element' : 'none');
-				}
+			// 疎通エッジの表示/非表示（セレクタで効率化）
+			cy.edges('[?isConnectivity][?isMutualOk]').style('display', showConnectivityOk ? 'element' : 'none');
+			cy.edges('[?isConnectivity][!isMutualOk]').style('display', showConnectivityNg ? 'element' : 'none');
+
+			// 孤立ノードの処理（表示中のエッジに接続しているノードを収集）
+			const visibleEdges = cy.edges().filter((edge: import('cytoscape').EdgeSingular) => {
+				return edge.style('display') !== 'none';
 			});
 
-			// 孤立ノード（表示中のエッジが0のノード）を非表示にする
+			// 表示中のエッジに接続しているノードのIDを収集
+			const connectedNodeIds = new Set<string>();
+			visibleEdges.forEach((edge: import('cytoscape').EdgeSingular) => {
+				connectedNodeIds.add(edge.data('source'));
+				connectedNodeIds.add(edge.data('target'));
+			});
+
+			// 全ノードの表示/非表示を一括設定
 			cy.nodes().forEach((node: import('cytoscape').NodeSingular) => {
-				// このノードに接続している表示中のエッジをカウント
-				const visibleEdges = node.connectedEdges().filter((edge: import('cytoscape').EdgeSingular) => {
-					return edge.style('display') !== 'none';
-				});
-				// 表示中のエッジがなければノードを非表示
-				node.style('display', visibleEdges.length > 0 ? 'element' : 'none');
+				const isConnected = connectedNodeIds.has(node.id());
+				node.style('display', isConnected ? 'element' : 'none');
 			});
 
 			cy.endBatch();
@@ -535,78 +598,95 @@
 
 	// ノードにフォーカス（カメラ移動＋一時ハイライト）
 	function focusOnNode(host: string) {
-		if (!cy) return;
+		// 安全性チェック
+		if (!cy || isDestroying || isLayoutRunning) return;
 
-		const node = cy.getElementById(host);
-		if (node.length === 0) return;
+		try {
+			const node = cy.getElementById(host);
+			if (node.length === 0) return;
 
-		// 前のハイライトタイマーをクリア
-		if (focusHighlightTimeout) {
-			clearTimeout(focusHighlightTimeout);
+			// ノードが非表示の場合はスキップ
+			if (node.style('display') === 'none') return;
+
+			// 前のハイライトタイマーをクリア
+			if (focusHighlightTimeout) {
+				clearTimeout(focusHighlightTimeout);
+				focusHighlightTimeout = null;
+			}
+
+			// 前のフォーカスノードのハイライトを解除
+			if (currentFocusedNode && currentFocusedNode.id() !== host) {
+				clearFocusHighlight(currentFocusedNode);
+			}
+
+			// ノードにカメラを移動（アニメーション付き）
+			cy.animate({
+				center: { eles: node },
+				zoom: Math.min(cy.zoom() * 1.2, 2), // 少しズームイン
+				duration: 500,
+				easing: 'ease-out-cubic'
+			});
+
+			// ノードをハイライト
+			node.style({
+				'border-width': 6,
+				'border-color': '#fff',
+				'border-style': 'solid'
+			});
+			node.connectedEdges().style({
+				'line-color': 'rgba(255, 255, 255, 0.8)',
+				opacity: 1
+			});
+
+			currentFocusedNode = node;
+
+			// 3秒後にハイライトを解除
+			focusHighlightTimeout = setTimeout(() => {
+				if (!isDestroying) {
+					clearFocusHighlight(node);
+				}
+				currentFocusedNode = null;
+			}, 3000);
+		} catch (e) {
+			// グラフ操作中のエラーは無視
+			console.debug('Error focusing on node:', e);
 		}
-
-		// 前のフォーカスノードのハイライトを解除
-		if (currentFocusedNode && currentFocusedNode.id() !== host) {
-			clearFocusHighlight(currentFocusedNode);
-		}
-
-		// ノードにカメラを移動（アニメーション付き）
-		cy.animate({
-			center: { eles: node },
-			zoom: Math.min(cy.zoom() * 1.2, 2), // 少しズームイン
-			duration: 500,
-			easing: 'ease-out-cubic'
-		});
-
-		// ノードをハイライト
-		node.style({
-			'border-width': 6,
-			'border-color': '#fff',
-			'border-style': 'solid'
-		});
-		node.connectedEdges().style({
-			'line-color': 'rgba(255, 255, 255, 0.8)',
-			opacity: 1
-		});
-
-		currentFocusedNode = node;
-
-		// 3秒後にハイライトを解除
-		focusHighlightTimeout = setTimeout(() => {
-			clearFocusHighlight(node);
-			currentFocusedNode = null;
-		}, 3000);
 	}
 
 	// フォーカスハイライトを解除
 	function clearFocusHighlight(node: import('cytoscape').NodeSingular) {
-		if (!cy) return;
+		if (!cy || isDestroying) return;
 
-		const isViewpoint = node.data('isViewpoint');
-		const nodeColor = node.data('color');
-		const borderWidth = node.data('borderWidth');
+		try {
+			const isViewpoint = node.data('isViewpoint');
+			const nodeColor = node.data('color');
+			const borderWidth = node.data('borderWidth');
 
-		if (isViewpoint) {
-			node.style({
-				'border-width': 3,
-				'border-color': '#86b300',
-				'border-style': 'solid'
+			if (isViewpoint) {
+				node.style({
+					'border-width': 3,
+					'border-color': '#86b300',
+					'border-style': 'solid'
+				});
+			} else {
+				node.style({
+					'border-width': borderWidth,
+					'border-color': nodeColor,
+					'border-style': 'solid'
+				});
+			}
+
+			// エッジを元に戻す
+			node.connectedEdges().forEach((edge: { data: (key: string) => string | number; style: (styles: Record<string, unknown>) => void }) => {
+				edge.style({
+					'line-color': edge.data('color'),
+					opacity: edge.data('opacity')
+				});
 			});
-		} else {
-			node.style({
-				'border-width': borderWidth,
-				'border-color': nodeColor,
-				'border-style': 'solid'
-			});
+		} catch (e) {
+			// グラフ操作中のエラーは無視
+			console.debug('Error clearing focus highlight:', e);
 		}
-
-		// エッジを元に戻す
-		node.connectedEdges().forEach((edge: { data: (key: string) => string | number; style: (styles: Record<string, unknown>) => void }) => {
-			edge.style({
-				'line-color': edge.data('color'),
-				opacity: edge.data('opacity')
-			});
-		});
 	}
 
 
@@ -895,7 +975,8 @@
 			node.data.borderWidth = Math.min(Math.max(size / 15, 1.5), 4);
 		}
 
-		cy = cytoscape({
+		// ローカル変数にcytoscapeインスタンスを保持（TypeScriptのnullチェック対策）
+		const cyInstance = cytoscape({
 			container,
 			elements: [...nodes, ...allEdges],
 			style: [
@@ -1080,6 +1161,9 @@
 			selectionType: 'single'
 		});
 
+		// グローバル変数に代入
+		cy = cyInstance;
+
 		// ノードのハイライト関数（宇宙空間のグロー効果）
 		function highlightNode(node: import('cytoscape').NodeSingular) {
 			const nodeSize = node.data('size') || 30;
@@ -1161,7 +1245,7 @@
 		let selectedNode: import('cytoscape').NodeSingular | null = null;
 
 		// タップでサーバー情報表示、選択中に再タップでサーバー遷移
-		cy.on('tap', 'node', (evt) => {
+		cyInstance.on('tap', 'node', (evt) => {
 			const node = evt.target;
 			const host = node.id();
 
@@ -1230,7 +1314,7 @@
 		});
 
 		// 背景タップで選択解除
-		cy.on('tap', (evt) => {
+		cyInstance.on('tap', (evt) => {
 			if (evt.target === cy) {
 				if (selectedNode) {
 					unhighlightNode(selectedNode);
@@ -1243,7 +1327,7 @@
 		});
 
 		// デスクトップ: マウスホバーでもハイライト表示 + ツールチップ
-		cy.on('mouseover', 'node', (evt) => {
+		cyInstance.on('mouseover', 'node', (evt) => {
 			const node = evt.target;
 			if (!selectedNode || selectedNode.id() !== node.id()) {
 				highlightNode(node);
@@ -1260,7 +1344,7 @@
 			};
 		});
 
-		cy.on('mouseout', 'node', (evt) => {
+		cyInstance.on('mouseout', 'node', (evt) => {
 			if (!selectedNode || selectedNode.id() !== evt.target.id()) {
 				unhighlightNode(evt.target);
 			}
@@ -1269,7 +1353,7 @@
 		});
 
 		// エッジのマウスホバーでツールチップ表示
-		cy.on('mouseover', 'edge', (evt) => {
+		cyInstance.on('mouseover', 'edge', (evt) => {
 			const edge = evt.target;
 			const sourceId = edge.data('source');
 			const targetId = edge.data('target');
@@ -1336,7 +1420,7 @@
 			});
 		});
 
-		cy.on('mouseout', 'edge', (evt) => {
+		cyInstance.on('mouseout', 'edge', (evt) => {
 			const edge = evt.target;
 			// エッジを元に戻す
 			edge.style({
@@ -1348,7 +1432,7 @@
 		});
 
 		// エッジタップで選択
-		cy.on('tap', 'edge', (evt) => {
+		cyInstance.on('tap', 'edge', (evt) => {
 			const edge = evt.target;
 			const sourceId = edge.data('source');
 			const targetId = edge.data('target');
@@ -1380,8 +1464,8 @@
 			}
 
 			// モバイル: タップ時にエッジツールチップも表示
-			const sourcePos = cy.getElementById(sourceId).renderedPosition();
-			const targetPos = cy.getElementById(targetId).renderedPosition();
+			const sourcePos = cyInstance.getElementById(sourceId).renderedPosition();
+			const targetPos = cyInstance.getElementById(targetId).renderedPosition();
 			const midX = (sourcePos.x + targetPos.x) / 2;
 			const midY = (sourcePos.y + targetPos.y) / 2;
 
@@ -1411,10 +1495,10 @@
 		});
 
 		// ドラッグは無効化（連合関係の距離感を維持）
-		cy.nodes().ungrabify();
+		cyInstance.nodes().ungrabify();
 
 		// 宇宙空間の慣性パン + パララックス効果（スロットリング付き）
-		cy.on('viewport', () => {
+		cyInstance.on('viewport', () => {
 			if (isPanning && cy) {
 				// スロットリング: 前回のリクエストがあればスキップ
 				if (viewportThrottleId !== null) return;
@@ -1435,12 +1519,12 @@
 			}
 		});
 
-		cy.on('grab', () => {
+		cyInstance.on('grab', () => {
 			stopInertia();
 		});
 
 		// パン開始
-		container.addEventListener('mousedown', (e) => {
+		const handleMousedown = (e: MouseEvent) => {
 			if (e.button === 0) { // 左クリックのみ
 				isPanning = true;
 				stopInertia();
@@ -1449,16 +1533,16 @@
 					lastPanPosition = { x: pan.x, y: pan.y };
 				}
 			}
-		});
+		};
 
-		container.addEventListener('touchstart', () => {
+		const handleTouchstart = () => {
 			isPanning = true;
 			stopInertia();
 			if (cy) {
 				const pan = cy.pan();
 				lastPanPosition = { x: pan.x, y: pan.y };
 			}
-		});
+		};
 
 		// パン終了 → 慣性開始
 		const handlePanEnd = () => {
@@ -1471,11 +1555,23 @@
 			}
 		};
 
+		// イベントリスナー登録（passiveオプションでパフォーマンス向上）
+		container.addEventListener('mousedown', handleMousedown);
+		container.addEventListener('touchstart', handleTouchstart, { passive: true });
 		container.addEventListener('mouseup', handlePanEnd);
 		container.addEventListener('mouseleave', handlePanEnd);
-		container.addEventListener('touchend', handlePanEnd);
+		container.addEventListener('touchend', handlePanEnd, { passive: true });
 
-		cy.on('layoutstop', () => {
+		// クリーンアップ関数を登録
+		containerListenerCleanups.push(
+			() => container.removeEventListener('mousedown', handleMousedown),
+			() => container.removeEventListener('touchstart', handleTouchstart),
+			() => container.removeEventListener('mouseup', handlePanEnd),
+			() => container.removeEventListener('mouseleave', handlePanEnd),
+			() => container.removeEventListener('touchend', handlePanEnd)
+		);
+
+		cyInstance.on('layoutstop', () => {
 			// レイアウト計算完了フラグをリセット
 			isLayoutRunning = false;
 
@@ -1491,8 +1587,8 @@
 				// グラフが準備完了したことを通知（エクスポート機能を渡す）
 				onReady?.(exportGraphImage);
 			}
-			// 視点サーバー間の疎通チェックを開始
-			checkViewpointConnectivity();
+			// 視点サーバー間の疎通チェックを開始（デバウンス付き）
+			debouncedCheckConnectivity();
 
 			// 初期選択があればハイライトして情報を表示
 			if (initialSelection && cy) {
