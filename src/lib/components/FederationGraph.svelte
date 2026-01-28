@@ -974,32 +974,38 @@
 			layout: {
 				name: 'cose',
 				animate: true,
-				animationDuration: 800,
+				animationDuration: 1000,
 				animationEasing: 'ease-out-cubic',
 				// ランダム初期配置
 				randomize: true,
 				// パディング
 				padding: 50,
-				// ノードサイズに応じた反発力
+				// ノードサイズに応じた反発力（fcose版を参考に調整）
 				nodeRepulsion: (node: { data: (key: string) => number }) => {
 					const size = node.data('size') || 30;
-					return 30000 + (size / 70) * 40000;
+					// 大きいノードほど強く反発（クラスタ分離を促進）
+					return 50000 + (size / 70) * 80000;
 				},
-				// エッジの理想的な長さ（関係の強さに基づく）
+				// エッジの理想的な長さ（fcose版の非線形スケールを適用）
 				idealEdgeLength: (edge: { data: (key: string) => number }) => {
 					const weight = edge.data('weight') || 1;
-					// weight: 1-30 → length: 200-30
+					// weight: 1-30 → normalized: 0-1
 					const normalized = Math.min(1, (weight - 1) / 29);
-					return 200 - normalized * 170;
+					// 非線形スケール: 強い関係をより近くに（fcose版と同じ曲線）
+					const curve = Math.pow(normalized, 0.4);
+					// length: 250-20（強い関係は非常に近く）
+					return 250 - curve * 230;
 				},
-				// 重力設定
-				gravity: 0.25,
-				// イテレーション数
-				numIter: 1000,
+				// 重力設定（fcose版に合わせて弱めに→クラスタが広がる）
+				gravity: 0.15,
+				// イテレーション数（収束精度を上げる）
+				numIter: 1500,
 				// フィット設定
 				fit: true,
 				// ノード重複を避ける
-				nodeOverlap: 20
+				nodeOverlap: 20,
+				// 分離コンポーネント間の距離
+				componentSpacing: 100
 			},
 			// インタラクティブ設定
 			minZoom: 0.3,
