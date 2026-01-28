@@ -207,8 +207,11 @@
 
 	<div class="viewpoint-chips">
 		{#each settings.viewpointServers as host (host)}
-			<div class="viewpoint-chip">
+			<div class="viewpoint-chip" class:my-server={authState?.user?.host === host}>
 				<button class="chip-main" onclick={() => handleFocus(host)} title="グラフ上でフォーカス">
+					{#if authState?.user?.host === host}
+						<span class="my-server-star">⭐</span>
+					{/if}
 					{host}
 					{#if isFromSSR(host)}
 						<span class="ssr-dot" title="SSRで取得済み"></span>
@@ -422,6 +425,21 @@
 		border-color: var(--accent-500);
 		box-shadow: var(--shadow-sm), 0 0 8px rgba(134, 179, 0, 0.15);
 		transform: translateY(-1px);
+	}
+
+	.viewpoint-chip.my-server {
+		border-color: rgba(255, 215, 0, 0.4);
+		background: rgba(255, 215, 0, 0.08);
+	}
+
+	.viewpoint-chip.my-server:hover {
+		border-color: #ffd700;
+		box-shadow: var(--shadow-sm), 0 0 10px rgba(255, 215, 0, 0.25);
+	}
+
+	.my-server-star {
+		font-size: 0.65rem;
+		line-height: 1;
 	}
 
 	.chip-main {
