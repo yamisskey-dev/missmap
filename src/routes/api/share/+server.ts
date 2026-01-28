@@ -60,6 +60,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 			const uploadRes = await fetch(`https://${host}/api/drive/files/create`, {
 				method: 'POST',
+				headers: {
+					'User-Agent': 'Missmap/1.0 (https://missmap.pages.dev)'
+				},
 				body: formData
 			});
 
@@ -101,7 +104,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		const noteRes = await fetch(`https://${host}/api/notes/create`, {
 			method: 'POST',
 			headers: {
-				'Content-Type': 'application/json'
+				'Content-Type': 'application/json',
+				'User-Agent': 'Missmap/1.0 (https://missmap.pages.dev)'
 			},
 			body: JSON.stringify(noteBody)
 		});
