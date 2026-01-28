@@ -31,22 +31,21 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
 
 			// base64をバイナリに変換（Cloudflare Workers互換）
-			let blob: Blob;
+			let bytes: Uint8Array;
 			try {
-				// Uint8Arrayを使用してBlobを作成
 				const binaryString = atob(base64Data);
-				const bytes = new Uint8Array(binaryString.length);
+				bytes = new Uint8Array(binaryString.length);
 				for (let i = 0; i < binaryString.length; i++) {
 					bytes[i] = binaryString.charCodeAt(i);
 				}
-				// ArrayBufferからBlobを作成（CF Workers互換性向上）
-				blob = new Blob([bytes.buffer], { type: mimeType });
 			} catch (decodeError) {
 				console.error('Base64 decode failed:', decodeError);
 				return json({ error: 'Invalid image data' }, { status: 400 });
 			}
 
 			// Misskeyのドライブにアップロード
+			// CF Workers互換: Uint8ArrayからBlobを直接作成
+			const blob = new Blob([bytes as BlobPart], { type: mimeType });
 			const formData = new FormData();
 			formData.append('i', token);
 			formData.append('file', blob, `missmap.${extension}`);
