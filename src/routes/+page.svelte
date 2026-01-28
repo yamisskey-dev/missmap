@@ -623,8 +623,14 @@
 	let shareSuccess = $state<{ message: string } | null>(null);
 
 	async function handleShareToMisskey() {
-		if (!authState.isLoggedIn || !authState.user || !exportGraphFn) {
+		if (!authState.isLoggedIn || !authState.user) {
 			shareError = 'ログインが必要です';
+			return;
+		}
+
+		if (!exportGraphFn) {
+			shareError = 'マップの読み込みを待っています...';
+			setTimeout(() => { shareError = null; }, 2000);
 			return;
 		}
 
@@ -641,48 +647,30 @@
 			const viewpointText = settings.viewpointServers.length > 0
 				? `視点: ${settings.viewpointServers.join(', ')}`
 				: '';
+			const text = `🗺️ Missmap - Fediverse連合マップ\n\n${viewpointText}\n\n${shareUrl}\n\n#Missmap #Fediverse`;
 
-			const host = authState.user.host;
-			let text = `🗺️ Missmap - Fediverse連合マップ\n\n${viewpointText}\n\n${shareUrl}\n\n#Missmap #Fediverse`;
-			let uploadSuccess = false;
+			// APIを通じて直接投稿（画像付き）
+			const res = await fetch('/api/share', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					text,
+					imageBase64
+				})
+			});
 
-			// 画像をドライブにアップロード
-			if (imageBase64) {
-				try {
-					const res = await fetch('/api/share', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({
-							imageBase64,
-							uploadOnly: true
-						})
-					});
-
-					if (res.ok) {
-						const result = await res.json();
-						if (result.fileId) {
-							uploadSuccess = true;
-							// ドライブにアップロード成功のメッセージを追加
-							text = `🗺️ Missmap - Fediverse連合マップ\n\n${viewpointText}\n\n${shareUrl}\n\n📷 マップ画像をドライブにアップロードしました。添付してください！\n\n#Missmap #Fediverse`;
-						}
-					}
-				} catch (uploadError) {
-					console.error('Image upload failed:', uploadError);
-					// アップロード失敗しても投稿画面は開く
-				}
+			if (!res.ok) {
+				const errorData = await res.json();
+				throw new Error(errorData.error || '投稿に失敗しました');
 			}
 
-			// Misskeyの投稿画面を開く（/share はfileIdsをサポートしていないため、テキストのみ）
-			const shareParams = new URLSearchParams();
-			shareParams.set('text', text);
-
-			const composeUrl = `https://${host}/share?${shareParams.toString()}`;
-			window.open(composeUrl, '_blank', 'noopener,noreferrer');
-
-			if (uploadSuccess) {
-				shareSuccess = { message: '画像をドライブに保存しました。投稿画面でドライブから添付してください' };
+			const result = await res.json();
+			if (result.noteUrl) {
+				shareSuccess = { message: '投稿しました！' };
+				// 投稿を新しいタブで開く
+				window.open(result.noteUrl, '_blank', 'noopener,noreferrer');
 			} else {
-				shareSuccess = { message: '投稿画面を開きました' };
+				shareSuccess = { message: '投稿しました' };
 			}
 			setTimeout(() => {
 				shareSuccess = null;

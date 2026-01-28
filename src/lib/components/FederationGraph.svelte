@@ -692,7 +692,25 @@
 
 	async function initGraph() {
 		// コンテナが準備されていない場合は中断
-		if (!container || container.clientHeight === 0) {
+		if (!container) {
+			console.debug('Container not ready, skipping initGraph');
+			return;
+		}
+
+		// コンテナがDOMに接続されているか確認
+		if (!container.isConnected) {
+			console.debug('Container not connected to DOM, skipping initGraph');
+			return;
+		}
+
+		// コンテナの高さが0の場合は少し待ってリトライ
+		if (container.clientHeight === 0) {
+			console.debug('Container has no height, will retry');
+			setTimeout(() => {
+				if (container && container.clientHeight > 0 && !isLayoutRunning) {
+					initGraph();
+				}
+			}, 100);
 			return;
 		}
 
