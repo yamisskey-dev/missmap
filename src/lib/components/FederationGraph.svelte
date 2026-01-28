@@ -113,7 +113,7 @@
 	}>>(new Map());
 	let isDestroying = false;
 	let isInitialized = false;
-	let isLayoutRunning = false;
+	let isLayoutRunning = $state(false);
 	let focusHighlightTimeout: ReturnType<typeof setTimeout> | null = null;
 	let currentFocusedNode: import('cytoscape').NodeSingular | null = null;
 
@@ -1588,7 +1588,9 @@
 			() => container.removeEventListener('touchend', handlePanEnd)
 		);
 
-		cyInstance.on('layoutstop', () => {
+		// animate: false を使用しているため、layoutstop イベントは cytoscape() コンストラクタ内で
+		// 同期的に発火する。そのため、イベントリスナー登録後に直接初期化完了処理を呼び出す。
+		const handleLayoutComplete = () => {
 			// レイアウト計算完了フラグをリセット
 			isLayoutRunning = false;
 
@@ -1678,7 +1680,10 @@
 					}
 				}
 			}
-		});
+		};
+
+		// animate: false なのでレイアウトは既に完了している。直接初期化完了処理を呼び出す。
+		handleLayoutComplete();
 	}
 </script>
 

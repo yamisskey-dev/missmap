@@ -647,7 +647,7 @@
 			const viewpointText = settings.viewpointServers.length > 0
 				? `視点: ${settings.viewpointServers.join(', ')}`
 				: '';
-			const text = `🗺️ Missmap - Fediverse連合マップ\n\n${viewpointText}\n\n${shareUrl}\n\n#Missmap #Fediverse`;
+			const text = `🗺️ Missmap - Misskey連合マップ\n\n${viewpointText}\n\n${shareUrl}\n\n#Missmap #Fediverse`;
 
 			// APIを通じて直接投稿（画像付き）
 			const res = await fetch('/api/share', {
