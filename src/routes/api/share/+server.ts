@@ -24,23 +24,24 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		// 画像がある場合はドライブにアップロード
 		if (imageBase64) {
-			// base64データURLからBlobを作成（Cloudflare Workers互換）
+			// base64データURLからBlobを作成
 			const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
 
-			// Cloudflare Workers互換のbase64デコード
-			let binaryData: Uint8Array;
+			// base64をバイナリに変換（Cloudflare Workers互換）
+			let blob: Blob;
 			try {
+				// Uint8Arrayを使用してBlobを作成
 				const binaryString = atob(base64Data);
-				binaryData = new Uint8Array(binaryString.length);
+				const bytes = new Uint8Array(binaryString.length);
 				for (let i = 0; i < binaryString.length; i++) {
-					binaryData[i] = binaryString.charCodeAt(i);
+					bytes[i] = binaryString.charCodeAt(i);
 				}
+				// ArrayBufferからBlobを作成（CF Workers互換性向上）
+				blob = new Blob([bytes.buffer], { type: 'image/png' });
 			} catch (decodeError) {
 				console.error('Base64 decode failed:', decodeError);
 				return json({ error: 'Invalid image data' }, { status: 400 });
 			}
-
-			const blob = new Blob([binaryData], { type: 'image/png' });
 
 			// Misskeyのドライブにアップロード
 			const formData = new FormData();
@@ -109,6 +110,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		});
 	} catch (error) {
 		console.error('Share error:', error);
-		return json({ error: 'Internal server error' }, { status: 500 });
+		// エラーの詳細をレスポンスに含める（デバッグ用）
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		return json({ error: `Internal server error: ${errorMessage}` }, { status: 500 });
 	}
 };
